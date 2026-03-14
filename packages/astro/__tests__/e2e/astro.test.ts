@@ -30,6 +30,7 @@ test.describe("Astro + blask E2E", () => {
   // E1: SSR — DSD テンプレートが HTML に出力されている
   // ---------------------------------------------------------------------------
   test("SSR output contains DSD template", async ({ page }) => {
+    test.setTimeout(10_000)
     // page.content() は JS 実行後の DOM を返すため DSD template は処理済みで存在しない
     // response.text() でサーバーからの生 HTML を取得する
     const response = await page.goto("/")
@@ -42,6 +43,7 @@ test.describe("Astro + blask E2E", () => {
   // E2: client:load — ページロード後に即 hydration、ボタンが動作する
   // ---------------------------------------------------------------------------
   test("client:load hydrates component", async ({ page }) => {
+    test.setTimeout(10_000)
     // connectedCallback → scheduleUpdate → useEffect までの非同期処理を待つ
     await page.waitForFunction(
       () => document.querySelector("counter-element")?.shadowRoot?.querySelector("#btn") != null,
@@ -65,6 +67,7 @@ test.describe("Astro + blask E2E", () => {
   // E3: client:visible — viewport 内に入ったときに hydration
   // ---------------------------------------------------------------------------
   test("client:visible hydrates when entering viewport", async ({ page }) => {
+    test.setTimeout(15_000)
     // スクロールで lazy-element を viewport 内に入れる
     await page.evaluate(() => {
       document.querySelector("lazy-element")?.scrollIntoView({ behavior: "instant" })
@@ -88,6 +91,7 @@ test.describe("Astro + blask E2E", () => {
   // E4: class:list — ホスト要素に class が正しく適用されている
   // ---------------------------------------------------------------------------
   test("class:list applies to host element", async ({ page }) => {
+    test.setTimeout(10_000)
     // class:list は Astro コンパイル時に class="host-class active" に変換される
     // renderToStaticMarkup が class 属性を host 要素 <counter-element> に付与する
     const el = page.locator("counter-element")
@@ -99,6 +103,7 @@ test.describe("Astro + blask E2E", () => {
   // E5: CSS custom properties — shadow DOM 内で var() が解決される
   // ---------------------------------------------------------------------------
   test("CSS custom properties cascade into shadow DOM", async ({ page }) => {
+    test.setTimeout(10_000)
     // ホスト要素の style="--primary: rgb(255, 0, 0)" が
     // shadow DOM 内の var(--primary) として解決されることを検証
     // CSS custom properties は shadow boundary を越えて継承される（CSS 仕様）
@@ -114,6 +119,7 @@ test.describe("Astro + blask E2E", () => {
   // E6: useEvent — CustomEvent が bubbles/composed で document まで届く
   // ---------------------------------------------------------------------------
   test("useEvent dispatches CustomEvent with bubbles and composed", async ({ page }) => {
+    test.setTimeout(10_000)
     // document レベルでイベントを listen し、ボタンクリックで発火を確認
     // composed: true で shadow boundary を越え、bubbles: true で document まで伝播する
     const eventPromise = page.evaluate(
@@ -148,6 +154,7 @@ test.describe("Astro + blask E2E", () => {
   // E7: useSlot — assignedElements の数が shadow DOM 内に反映される
   // ---------------------------------------------------------------------------
   test("useSlot reflects slot content count", async ({ page }) => {
+    test.setTimeout(10_000)
     // useSlot() 動作:
     // 初回レンダー: count=0 (useState の初期値)
     // useEffect 実行: slot.assignedElements() で 2 要素取得 → setElements → 再レンダー
@@ -167,6 +174,7 @@ test.describe("Astro + blask E2E", () => {
   // E8: adoptedStyleSheets — shadow DOM に CSS シートが適用されている
   // ---------------------------------------------------------------------------
   test("adoptedStyleSheets apply inside shadow DOM", async ({ page }) => {
+    test.setTimeout(10_000)
     // defineElement の styles オプションで CSSStyleSheet が作成・適用される
     const hasSheet = await page.evaluate(() => {
       const host = document.querySelector("styled-element")
