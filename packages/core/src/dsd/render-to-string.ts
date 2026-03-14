@@ -51,20 +51,32 @@ function buildTemplateAttrs(attrs: DSDAttributes): string {
   return s
 }
 
+const VALID_TAG_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)+$/
+const VALID_ATTR_RE = /^[a-z_][a-z0-9_-]*$/i
+
 export function renderToString(
   ElementClass: CustomElementConstructor & {
     __sparkle?: boolean
     _styles?: string
     _shadow?: boolean | ShadowRootInit
   },
-  tag: string,
+  rawTag: string,
   props: Record<string, unknown>,
   options?: RenderToStringOptions,
 ): string {
+  let tag = rawTag
+  if (!VALID_TAG_RE.test(tag)) {
+    if (typeof console !== "undefined") {
+      console.warn(`[sparkle] Invalid tag name "${tag}", falling back to "sparkle-component"`)
+    }
+    tag = "sparkle-component"
+  }
+
   // Build attributes string
   let attrs = ""
   for (const [key, value] of Object.entries(props)) {
     const attrName = camelToKebab(key)
+    if (!VALID_ATTR_RE.test(attrName)) continue
     if (value === false || value == null) continue
     if (value === true) {
       attrs += ` ${attrName}`
@@ -133,7 +145,8 @@ export function renderToString(
   const componentCss = (ElementClass as any)._styles ?? ""
   const unoCss = options?.unoCSS ?? ""
   const combinedCss = [componentCss, unoCss].filter(Boolean).join("\n")
-  const styleTag = combinedCss ? `<style>${combinedCss}</style>` : ""
+  const safeCss = combinedCss.replace(/<\/style/gi, "<\\/style")
+  const styleTag = combinedCss ? `<style>${safeCss}</style>` : ""
 
   let slotContent = ""
   if (options?.slots) {

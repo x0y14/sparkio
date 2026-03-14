@@ -294,6 +294,51 @@ describe("renderToString", () => {
     expect(html).toContain("number")
   })
 
+  test("CSS containing </style> is escaped to prevent style tag breakout", () => {
+    const tag = uniqueTag()
+    const maliciousCss = '</style><script>alert("xss")</script><style>'
+    const Comp = defineElement({ tag, styles: maliciousCss }, () => "<p>hi</p>")
+    const html = renderToString(Comp, tag, {})
+    // </style> がそのまま出力されると style タグが閉じてしまう
+    expect(html).not.toContain('</style><script>')
+    // エスケープされた形で含まれるべき
+    expect(html).toContain('<\\/style>')
+  })
+
+  test("unoCSS containing </style> is also escaped", () => {
+    const tag = uniqueTag()
+    const Comp = defineElement({ tag }, () => "<p>hi</p>")
+    const html = renderToString(Comp, tag, {}, { unoCSS: 'a{content:"</style><script>alert(1)</script>"}' })
+    expect(html).not.toContain('</style><script>')
+  })
+
+  test("invalid tag name falls back to sparkle-component", () => {
+    const Comp = defineElement({}, () => "<p>hi</p>")
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const html = renderToString(Comp, 'div><script>alert(1)</script><div', {})
+    expect(html).toContain("<sparkle-component")
+    expect(html).toContain("</sparkle-component>")
+    expect(html).not.toContain("<div><script>")
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid tag name"))
+    warnSpy.mockRestore()
+  })
+
+  test("valid custom element tag name is accepted", () => {
+    const tag = uniqueTag()
+    const Comp = defineElement({ tag }, () => "<p>hi</p>")
+    const html = renderToString(Comp, tag, {})
+    expect(html).toContain(`<${tag}`)
+    expect(html).toContain(`</${tag}>`)
+  })
+
+  test("attribute names with invalid characters are skipped", () => {
+    const tag = uniqueTag()
+    const Comp = defineElement({ tag }, () => "<p>hi</p>")
+    const html = renderToString(Comp, tag, { 'x" onclick="alert(1)': "val" })
+    expect(html).not.toContain('onclick')
+    expect(html).not.toContain('alert')
+  })
+
   test("SSR coerces props same as CSR (Boolean)", () => {
     const Comp = defineElement(
       { props: { active: { type: Boolean } } },

@@ -7,6 +7,14 @@ type IdMap = Map<Node, Set<string>>
 // Entry point
 // ============================================================
 
+/**
+ * Morph the children of `root` to match `newHTML`.
+ *
+ * @remarks
+ * This function uses `innerHTML` internally to parse `newHTML`.
+ * Only pass **trusted HTML** (e.g., output from your `renderFn`).
+ * Never pass unsanitised user input — it will be executed as DOM content.
+ */
 export function morph(root: Element | ShadowRoot, newHTML: string): void {
   const newContent = parseHTML(newHTML)
 

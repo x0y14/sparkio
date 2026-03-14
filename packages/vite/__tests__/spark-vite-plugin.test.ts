@@ -132,6 +132,33 @@ describe("sparkleVitePlugin", () => {
     expect(result.code).toContain(":host { display: block; }")
   })
 
+  test("load: CSS containing ${ is escaped to prevent template literal injection", async () => {
+    const plugin = sparkleVitePlugin({
+      unoConfig: {
+        presets: [],
+        rules: [["inject", [["content", '"${alert(1)}"']]]],
+      },
+    })
+    await (plugin as any).buildStart?.()
+    const load = plugin.load as Function
+    const result = await load("\0virtual:sparkle/uno.css")
+    // ${ がエスケープされて \${ になっているべき
+    expect(result).not.toMatch(/(?<!\\)\$\{/)
+  })
+
+  test("transform: CSS containing ${ is escaped in placeholder replacement", async () => {
+    const plugin = sparkleVitePlugin({
+      unoConfig: { presets: [] },
+    })
+    await (plugin as any).buildStart?.()
+    const transform = plugin.transform as Function
+    const code = 'const css = `@unocss-placeholder`;'
+    const result = await transform(code, "test.ts")
+    if (result) {
+      expect(result.code).not.toMatch(/(?<!\\)\$\{alert/)
+    }
+  })
+
   test("handleHotUpdate replaces CSS_PLACEHOLDER in ctx.read", async () => {
     const plugin = sparkleVitePlugin({ unoConfig: { presets: [] } })
 

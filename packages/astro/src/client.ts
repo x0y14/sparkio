@@ -1,3 +1,9 @@
+const UNSAFE_PROPS = new Set(["innerHTML", "outerHTML", "textContent", "innerText"])
+
+function isUnsafeProp(key: string): boolean {
+  return UNSAFE_PROPS.has(key) || key.startsWith("on")
+}
+
 export default (element: HTMLElement) => {
   return async (
     _Component: any,
@@ -9,11 +15,20 @@ export default (element: HTMLElement) => {
     // Astro passes the <astro-island> wrapper as `element`.
     // The actual Sparkle component is its first child element.
     const component = (element.firstElementChild as HTMLElement) ?? element
+    const schema = (component.constructor as any)?._propsSchema
 
     // Set props that may not be reflected as attributes (e.g., Object/Array)
     for (const [key, value] of Object.entries(props)) {
-      if (key in component) {
-        ;(component as any)[key] = value
+      if (schema) {
+        // Schema exists: only allow keys defined in schema
+        if (key in schema && key in component) {
+          ;(component as any)[key] = value
+        }
+      } else {
+        // No schema: block dangerous properties
+        if (key in component && !isUnsafeProp(key)) {
+          ;(component as any)[key] = value
+        }
       }
     }
   }
