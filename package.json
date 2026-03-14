@@ -3,7 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/x0y14/blask.git"
+  },
   "scripts": {
+    "build": "pnpm -r --filter './packages/*' --stream run build",
+    "build:examples": "pnpm -r --filter './examples/**' --stream run build",
+    "clean": "pnpm -r --filter './packages/*' --stream run clean",
+    "clean:examples": "pnpm -r --filter './examples/**' --stream run clean",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "oxlint .",
@@ -18,9 +26,5 @@
     "oxlint": "^1.55.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/x0y14/blask.git"
   }
 }

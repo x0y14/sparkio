@@ -414,7 +414,7 @@ function restoreFocusState(root: Element | ShadowRoot, saved: SavedFocus): void 
   } else if (saved.path) {
     let node: Node | null = root as unknown as Node
     for (const index of saved.path) {
-      const child = node!.childNodes[index]
+      const child: ChildNode | undefined = node!.childNodes[index]
       if (!child) {
         node = null
         break
