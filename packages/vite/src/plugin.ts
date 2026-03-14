@@ -48,7 +48,7 @@ export function sparkleVitePlugin(options?: SparkleVitePluginOptions): Plugin {
       if (id !== RESOLVED_VIRTUAL_ID) return
       if (!uno) uno = await createGenerator(options?.unoConfig ?? {})
       const { css } = await uno.generate([], { preflights, safelist })
-      const escaped = css.replace(/\\/g, "\\\\").replace(/`/g, "\\`")
+      const escaped = css.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$")
       return `const sheet = new CSSStyleSheet();\nsheet.replaceSync(\`${escaped}\`);\nexport default sheet;\n`
     },
 
@@ -56,8 +56,8 @@ export function sparkleVitePlugin(options?: SparkleVitePluginOptions): Plugin {
       if (!code.includes(CSS_PLACEHOLDER)) return null
       if (!uno) uno = await createGenerator(options?.unoConfig ?? {})
       const { css } = await uno.generate(code, { preflights, safelist })
-      const escaped = css.replace(/\\/g, "\\\\").replace(/`/g, "\\`")
-      let result = code.replace(CSS_PLACEHOLDER, escaped)
+      const escaped = css.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$")
+      let result = code.replace(CSS_PLACEHOLDER, () => escaped)
       result = await resolveApply(result, uno)
       return {
         code: result,
@@ -72,7 +72,7 @@ export function sparkleVitePlugin(options?: SparkleVitePluginOptions): Plugin {
         if (!code.includes(CSS_PLACEHOLDER)) return code
         if (!uno) uno = await createGenerator(options?.unoConfig ?? {})
         const { css } = await uno.generate(code, { preflights, safelist })
-        const escaped = css.replace(/\\/g, "\\\\").replace(/`/g, "\\`")
+        const escaped = css.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$")
         let processed = code.replace(CSS_PLACEHOLDER, escaped)
         processed = await resolveApply(processed, uno)
         return processed

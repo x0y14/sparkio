@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest"
-import { defineElement } from "../src/define-element.js"
+import { defineElement, coerceValue } from "../src/define-element.js"
 import { useState } from "../src/hooks/use-state.js"
 import { useEffect } from "../src/hooks/use-effect.js"
 
@@ -566,6 +566,51 @@ describe("defineElement", () => {
     await flushMicrotasks()
     expect(captured).toBe(42)
     document.body.removeChild(el)
+  })
+
+  test("JSON.parse strips __proto__ key to prevent prototype pollution", () => {
+    const result = coerceValue('{"__proto__": {"polluted": true}, "safe": 1}', Object)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual({ safe: 1 })
+      expect((result.value as any).__proto__).toBe(Object.prototype)
+      expect(({} as any).polluted).toBeUndefined()
+    }
+  })
+
+  test("JSON.parse strips constructor key", () => {
+    const result = coerceValue('{"constructor": {"prototype": {"polluted": true}}, "ok": 1}', Object)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual({ ok: 1 })
+      // The explicit "constructor" key should not be an own property
+      expect(Object.prototype.hasOwnProperty.call(result.value, "constructor")).toBe(false)
+    }
+  })
+
+  test("JSON.parse strips prototype key", () => {
+    const result = coerceValue('{"prototype": {"polluted": true}, "data": 2}', Object)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual({ data: 2 })
+      expect((result.value as any).prototype).toBeUndefined()
+    }
+  })
+
+  test("JSON.parse works normally for safe objects", () => {
+    const result = coerceValue('{"name": "test", "count": 42}', Object)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual({ name: "test", count: 42 })
+    }
+  })
+
+  test("JSON.parse works normally for arrays", () => {
+    const result = coerceValue('[1, 2, 3]', Array)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toEqual([1, 2, 3])
+    }
   })
 
   test("effects re-registered after disconnect/reconnect", async () => {
