@@ -1,4 +1,4 @@
-import { defineElement, useProp, useEvent, useHost, useEffect, css } from "@sparkle/core";
+import { defineElement, useProp, useEvent, useHost, useEffect, css } from "@blask/core";
 
 const QuantitySelector = defineElement(
   {

@@ -1,4 +1,4 @@
-import { createContext } from "@sparkle/core";
+import { createContext } from "@blask/core";
 import type { CartItem } from "../lib/types.js";
 
 export type CartContextValue = {

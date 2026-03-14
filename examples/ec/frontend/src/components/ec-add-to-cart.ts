@@ -1,4 +1,4 @@
-import { defineElement, useState, useHost, useEffect, useEvent, css } from "@sparkle/core";
+import { defineElement, useState, useHost, useEffect, useEvent, css } from "@blask/core";
 
 const AddToCart = defineElement(
   {

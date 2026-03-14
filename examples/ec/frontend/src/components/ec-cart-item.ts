@@ -1,4 +1,4 @@
-import { defineElement, useContext, useHost, useEffect, css } from "@sparkle/core";
+import { defineElement, useContext, useHost, useEffect, css } from "@blask/core";
 import { CartContext } from "../context/cart-context.js";
 
 const CartItemEl = defineElement(

@@ -56,7 +56,7 @@ const VALID_ATTR_RE = /^[a-z_][a-z0-9_-]*$/i
 
 export function renderToString(
   ElementClass: CustomElementConstructor & {
-    __sparkle?: boolean
+    __blask?: boolean
     _styles?: string
     _shadow?: boolean | ShadowRootInit
   },
@@ -67,9 +67,9 @@ export function renderToString(
   let tag = rawTag
   if (!VALID_TAG_RE.test(tag)) {
     if (typeof console !== "undefined") {
-      console.warn(`[sparkle] Invalid tag name "${tag}", falling back to "sparkle-component"`)
+      console.warn(`[blask] Invalid tag name "${tag}", falling back to "blask-component"`)
     }
-    tag = "sparkle-component"
+    tag = "blask-component"
   }
 
   // Build attributes string
@@ -140,7 +140,7 @@ export function renderToString(
   } catch (err) {
     const tagName = tag || (ElementClass as any)._tag || "unknown"
     if (typeof console !== "undefined") {
-      console.warn(`[sparkle] SSR render error in <${tagName}>:`, err)
+      console.warn(`[blask] SSR render error in <${tagName}>:`, err)
     }
   }
 

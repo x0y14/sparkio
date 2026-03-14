@@ -1,19 +1,19 @@
-import { renderToString } from "@sparkle/core"
+import { renderToString } from "@blask/core"
 
 function getTagName(Component: any, props: Record<string, any>): string {
   if (props._tag) return props._tag
   if (Component._tag) return Component._tag
   if (typeof console !== "undefined") {
     console.warn(
-      "[sparkle] Component has no tag name, using fallback 'sparkle-component'. Set the 'tag' option in defineElement().",
+      "[blask] Component has no tag name, using fallback 'blask-component'. Set the 'tag' option in defineElement().",
     )
   }
-  return "sparkle-component"
+  return "blask-component"
 }
 
 export default {
   check(Component: any): boolean {
-    return Component?.__sparkle === true
+    return Component?.__blask === true
   },
 
   async renderToStaticMarkup(

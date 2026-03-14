@@ -20,7 +20,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: `pnpm astro dev --root ./__tests__/e2e/fixtures/sparkle-basics --port ${PORT}`,
+    command: `pnpm astro dev --root ./__tests__/e2e/fixtures/basics --port ${PORT}`,
     port: PORT,
     timeout: 30_000,
     reuseExistingServer: false,

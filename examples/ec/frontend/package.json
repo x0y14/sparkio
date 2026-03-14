@@ -11,9 +11,9 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@sparkle/astro": "workspace:*",
-    "@sparkle/core": "workspace:*",
-    "@sparkle/vite": "workspace:*",
+    "@blask/astro": "workspace:*",
+    "@blask/core": "workspace:*",
+    "@blask/vite": "workspace:*",
     "@unocss/astro": "^66.0.0",
     "@unocss/reset": "^66.0.0",
     "astro": "^6.0.4",

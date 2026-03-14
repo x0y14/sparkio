@@ -10,62 +10,62 @@ describe("client directive", () => {
 
   test("schema あり: _propsSchema に定義された prop は設定される", async () => {
     const island = document.createElement("div")
-    const sparkleEl = document.createElement("div") as any
-    Object.defineProperty(sparkleEl, "count", {
+    const blaskEl = document.createElement("div") as any
+    Object.defineProperty(blaskEl, "count", {
       value: 0,
       writable: true,
       configurable: true,
     })
-    sparkleEl.constructor._propsSchema = { count: { type: Number } }
-    island.appendChild(sparkleEl)
+    blaskEl.constructor._propsSchema = { count: { type: Number } }
+    island.appendChild(blaskEl)
 
     const hydrate = clientDirective(island)
     await hydrate(null, { count: 42 }, {})
 
-    expect(sparkleEl.count).toBe(42)
+    expect(blaskEl.count).toBe(42)
   })
 
   test("schema あり: _propsSchema に定義されていない prop は拒否される", async () => {
     const island = document.createElement("div")
-    const sparkleEl = document.createElement("div") as any
-    Object.defineProperty(sparkleEl, "innerHTML", {
+    const blaskEl = document.createElement("div") as any
+    Object.defineProperty(blaskEl, "innerHTML", {
       value: "",
       writable: true,
       configurable: true,
     })
-    sparkleEl.constructor._propsSchema = { count: { type: Number } }
-    island.appendChild(sparkleEl)
+    blaskEl.constructor._propsSchema = { count: { type: Number } }
+    island.appendChild(blaskEl)
 
     const hydrate = clientDirective(island)
     await hydrate(null, { innerHTML: "evil" }, {})
 
-    expect(sparkleEl.innerHTML).toBe("")
+    expect(blaskEl.innerHTML).toBe("")
   })
 
   test("schema あり: Object/Array props が正しく渡される", async () => {
     const island = document.createElement("div")
-    const sparkleEl = document.createElement("div") as any
-    Object.defineProperty(sparkleEl, "items", {
+    const blaskEl = document.createElement("div") as any
+    Object.defineProperty(blaskEl, "items", {
       value: [],
       writable: true,
       configurable: true,
     })
-    Object.defineProperty(sparkleEl, "config", {
+    Object.defineProperty(blaskEl, "config", {
       value: {},
       writable: true,
       configurable: true,
     })
-    sparkleEl.constructor._propsSchema = {
+    blaskEl.constructor._propsSchema = {
       items: { type: Array },
       config: { type: Object },
     }
-    island.appendChild(sparkleEl)
+    island.appendChild(blaskEl)
 
     const hydrate = clientDirective(island)
     await hydrate(null, { items: [1, 2, 3], config: { theme: "dark" } }, {})
 
-    expect(sparkleEl.items).toEqual([1, 2, 3])
-    expect(sparkleEl.config).toEqual({ theme: "dark" })
+    expect(blaskEl.items).toEqual([1, 2, 3])
+    expect(blaskEl.config).toEqual({ theme: "dark" })
   })
 
   test("schema あり: firstElementChild がない場合は element 自体に設定する", async () => {
@@ -87,50 +87,50 @@ describe("client directive", () => {
 
   test("schema なし: どの prop も設定されない", async () => {
     const island = document.createElement("div")
-    const sparkleEl = document.createElement("div") as any
-    Object.defineProperty(sparkleEl, "count", {
+    const blaskEl = document.createElement("div") as any
+    Object.defineProperty(blaskEl, "count", {
       value: 0,
       writable: true,
       configurable: true,
     })
-    island.appendChild(sparkleEl)
+    island.appendChild(blaskEl)
 
     const hydrate = clientDirective(island)
     await hydrate(null, { count: 42 }, {})
 
-    expect(sparkleEl.count).toBe(0)
+    expect(blaskEl.count).toBe(0)
   })
 
   test("schema なし: innerHTML も設定されない", async () => {
     const island = document.createElement("div")
-    const sparkleEl = document.createElement("div")
-    island.appendChild(sparkleEl)
+    const blaskEl = document.createElement("div")
+    island.appendChild(blaskEl)
 
-    const originalInnerHTML = sparkleEl.innerHTML
+    const originalInnerHTML = blaskEl.innerHTML
     const hydrate = clientDirective(island)
     await hydrate(null, { innerHTML: '<img onerror="alert(1)">' }, {})
 
-    expect(sparkleEl.innerHTML).toBe(originalInnerHTML)
+    expect(blaskEl.innerHTML).toBe(originalInnerHTML)
   })
 
   test("schema なし: コンポーネント上に存在する prop でも設定されない", async () => {
     const island = document.createElement("div")
-    const sparkleEl = document.createElement("div") as any
-    sparkleEl.onclick = null
-    island.appendChild(sparkleEl)
+    const blaskEl = document.createElement("div") as any
+    blaskEl.onclick = null
+    island.appendChild(blaskEl)
 
     const hydrate = clientDirective(island)
     await hydrate(null, { onclick: () => alert("xss") }, {})
 
-    expect(sparkleEl.onclick).toBeNull()
+    expect(blaskEl.onclick).toBeNull()
   })
 
   // --- エッジケース ---
 
   test("props が空オブジェクトの場合はエラーにならない", async () => {
     const island = document.createElement("div")
-    const sparkleEl = document.createElement("div")
-    island.appendChild(sparkleEl)
+    const blaskEl = document.createElement("div")
+    island.appendChild(blaskEl)
 
     const hydrate = clientDirective(island)
     await expect(hydrate(null, {}, {})).resolves.not.toThrow()

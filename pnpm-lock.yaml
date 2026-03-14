@@ -42,13 +42,13 @@ importers:
 
   examples/ec/frontend:
     dependencies:
-      '@sparkle/astro':
+      '@blask/astro':
         specifier: workspace:*
         version: link:../../../packages/astro
-      '@sparkle/core':
+      '@blask/core':
         specifier: workspace:*
         version: link:../../../packages/core
-      '@sparkle/vite':
+      '@blask/vite':
         specifier: workspace:*
         version: link:../../../packages/vite
       '@unocss/astro':
@@ -82,10 +82,10 @@ importers:
 
   packages/astro:
     dependencies:
-      '@sparkle/core':
+      '@blask/core':
         specifier: workspace:*
         version: link:../core
-      '@sparkle/vite':
+      '@blask/vite':
         specifier: workspace:*
         version: link:../vite
       unocss:
@@ -108,12 +108,12 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/debug@4.1.12)(happy-dom@17.6.3)(jiti@2.6.1)(tsx@4.21.0)
 
-  packages/astro/__tests__/e2e/fixtures/spark-basics:
+  packages/astro/__tests__/e2e/fixtures/basics:
     dependencies:
-      '@sparkle/astro':
+      '@blask/astro':
         specifier: workspace:*
         version: link:../../../..
-      '@sparkle/core':
+      '@blask/core':
         specifier: workspace:*
         version: link:../../../../../core
       astro:

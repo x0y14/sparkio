@@ -1,4 +1,4 @@
-import { defineElement, useSlot } from "@sparkle/core"
+import { defineElement, useSlot } from "@blask/core"
 
 const SlotElement = defineElement(
   {

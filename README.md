@@ -1,24 +1,24 @@
-# Sparkle
+# Black
 
 A hooks-based Web Components library optimized for Astro and utility-first CSS.
 
 ## Concept
 
-### Hooks-Based Component Model (@sparkle/core)
+### Hooks-Based Component Model (@blask/core)
 
-Sparkle brings React-like hooks (`useState`, `useEffect`, `useRef`, etc.) to Web Components. Components are defined with `defineElement()` — a single function that takes options (tag name, props schema, styles) and a render function returning an HTML string. There is no JSX and no custom template syntax — just plain HTML strings. Efficient DOM updates are handled by a built-in morphing algorithm rather than full re-renders.
+Black brings React-like hooks (`useState`, `useEffect`, `useRef`, etc.) to Web Components. Components are defined with `defineElement()` — a single function that takes options (tag name, props schema, styles) and a render function returning an HTML string. There is no JSX and no custom template syntax — just plain HTML strings. Efficient DOM updates are handled by a built-in morphing algorithm rather than full re-renders.
 
-### Utility-First CSS in Shadow DOM (@sparkle/vite)
+### Utility-First CSS in Shadow DOM (@blask/vite)
 
-Shadow DOM encapsulates styles, which normally blocks utility CSS frameworks from reaching component internals. Sparkle's Vite plugin solves this by injecting UnoCSS-generated styles into each component's Shadow DOM via the `@unocss-placeholder` marker. It also supports `@apply` directive resolution and HMR.
+Shadow DOM encapsulates styles, which normally blocks utility CSS frameworks from reaching component internals. Black's Vite plugin solves this by injecting UnoCSS-generated styles into each component's Shadow DOM via the `@unocss-placeholder` marker. It also supports `@apply` directive resolution and HMR.
 
-### Astro-First SSR (@sparkle/astro)
+### Astro-First SSR (@blask/astro)
 
-Sparkle provides an Astro integration with server-side rendering via Declarative Shadow DOM (DSD). Components render to HTML with `<template shadowrootmode="open">` on the server, and client-side hydration restores interactivity. It works with Astro's template directives (`client:load`, `client:visible`, etc.).
+Black provides an Astro integration with server-side rendering via Declarative Shadow DOM (DSD). Components render to HTML with `<template shadowrootmode="open">` on the server, and client-side hydration restores interactivity. It works with Astro's template directives (`client:load`, `client:visible`, etc.).
 
 ## What You Can Build
 
-The `examples/ec/` directory contains a full e-commerce storefront built entirely with Sparkle components, demonstrating:
+The `examples/ec/` directory contains a full e-commerce storefront built entirely with Black components, demonstrating:
 
 - Reactive UI components with local state (`useState`, `useEffect`)
 - Two-way prop binding with attribute reflection (`useProp`)
@@ -34,7 +34,7 @@ The `examples/ec/` directory contains a full e-commerce storefront built entirel
 A minimal greeting component using `defineElement`, `useState`, `useHost`, `useEffect`, and `css`:
 
 ```typescript
-import { defineElement, useState, useHost, useEffect, css } from "@sparkle/core";
+import { defineElement, useState, useHost, useEffect, css } from "@blask/core";
 
 const HelloMessage = defineElement(
   {
@@ -74,7 +74,7 @@ export default HelloMessage;
 Use `useProp` for two-way binding and `useEvent` for dispatching custom events:
 
 ```typescript
-import { defineElement, useProp, useEvent, useHost, useEffect, css } from "@sparkle/core";
+import { defineElement, useProp, useEvent, useHost, useEffect, css } from "@blask/core";
 
 const StarRating = defineElement(
   {
@@ -120,7 +120,7 @@ Use `createContext` to define shared state and `useContext` to consume it:
 
 ```typescript
 // theme-context.ts
-import { createContext } from "@sparkle/core";
+import { createContext } from "@blask/core";
 
 export type ThemeContextValue = {
   mode: "light" | "dark";
@@ -135,7 +135,7 @@ export const ThemeContext = createContext<ThemeContextValue>(
 
 ```typescript
 // theme-toggle.ts
-import { defineElement, useContext, css } from "@sparkle/core";
+import { defineElement, useContext, css } from "@blask/core";
 import { ThemeContext } from "./theme-context.js";
 
 const ThemeToggle = defineElement(
@@ -155,12 +155,12 @@ export default ThemeToggle;
 
 ## Setup with Astro + UnoCSS
 
-Sparkle integrates with Astro and UnoCSS so that utility classes work inside Shadow DOM.
+Black integrates with Astro and UnoCSS so that utility classes work inside Shadow DOM.
 
 ### Install
 
 ```bash
-pnpm add @sparkle/core @sparkle/astro unocss @unocss/astro
+pnpm add @blask/core @blask/astro unocss @unocss/astro
 ```
 
 ### UnoCSS config
@@ -181,19 +181,19 @@ export default defineConfig({
 
 ```typescript
 import { defineConfig } from "astro/config";
-import { sparkleIntegration } from "@sparkle/astro";
+import { blaskIntegration } from "@blask/astro";
 import UnoCSS from "@unocss/astro";
 import unoConfig from "./uno.config.ts";
 
 export default defineConfig({
   integrations: [
-    sparkleIntegration({ unoConfig }),
+    blaskIntegration({ unoConfig }),
     UnoCSS({ injectReset: true }),
   ],
 });
 ```
 
-- `sparkleIntegration({ unoConfig })` — Registers the Sparkle renderer and Vite plugin. The `unoConfig` option enables the plugin to generate and inject UnoCSS styles into each component's Shadow DOM at the `@unocss-placeholder` marker.
+- `blaskIntegration({ unoConfig })` — Registers the Black renderer and Vite plugin. The `unoConfig` option enables the plugin to generate and inject UnoCSS styles into each component's Shadow DOM at the `@unocss-placeholder` marker.
 - `UnoCSS({ injectReset: true })` — Handles UnoCSS for the light DOM (outside Shadow DOM).
 
 ### Use `@unocss-placeholder` in components
@@ -220,9 +220,9 @@ const MyComponent = defineElement(
 
 | Package | Description |
 |---------|-------------|
-| `@sparkle/core` | Hooks, component definition, DOM morphing, Declarative Shadow DOM SSR, Context API |
-| `@sparkle/vite` | Vite plugin — UnoCSS injection into Shadow DOM, `@apply` resolution, HMR |
-| `@sparkle/astro` | Astro integration — server-side renderer, client-side hydration, DSD polyfill |
+| `@blask/core` | Hooks, component definition, DOM morphing, Declarative Shadow DOM SSR, Context API |
+| `@blask/vite` | Vite plugin — UnoCSS injection into Shadow DOM, `@apply` resolution, HMR |
+| `@blask/astro` | Astro integration — server-side renderer, client-side hydration, DSD polyfill |
 
 ## Hooks
 

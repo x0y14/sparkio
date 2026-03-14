@@ -1,5 +1,5 @@
 {
-  "name": "@sparkle/astro",
+  "name": "@blask/astro",
   "version": "0.0.1",
   "type": "module",
   "main": "src/index.ts",
@@ -25,8 +25,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sparkle/core": "workspace:*",
-    "@sparkle/vite": "workspace:*"
+    "@blask/core": "workspace:*",
+    "@blask/vite": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

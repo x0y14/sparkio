@@ -8,8 +8,8 @@ describe("BaseLayout.astro のヘッダー構成", () => {
     "utf-8",
   );
 
-  test("Sparkle EC ロゴリンクが存在する", () => {
-    expect(src).toContain("Sparkle EC");
+  test("Black EC ロゴリンクが存在する", () => {
+    expect(src).toContain("Black EC");
     expect(src).toMatch(/href="\/"/);
   });
 

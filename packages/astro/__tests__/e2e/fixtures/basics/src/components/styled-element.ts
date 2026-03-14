@@ -1,4 +1,4 @@
-import { defineElement, css } from "@sparkle/core"
+import { defineElement, css } from "@blask/core"
 
 const StyledElement = defineElement(
   {

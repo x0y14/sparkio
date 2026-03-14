@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from "vitest";
-import { renderToString } from "@sparkle/core";
+import { renderToString } from "@blask/core";
 
 function flushMicrotasks(rounds = 5): Promise<void> {
   return new Promise((r) => { let n = rounds; function s() { if (--n <= 0) r(); else queueMicrotask(s); } queueMicrotask(s); });

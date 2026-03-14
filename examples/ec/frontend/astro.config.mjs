@@ -1,10 +1,10 @@
 import { defineConfig } from "astro/config";
-import { sparkleIntegration } from "@sparkle/astro";
+import { blaskIntegration } from "@blask/astro";
 import UnoCSS from "@unocss/astro";
 import unoConfig from "./uno.config.ts";
 export default defineConfig({
   output: 'server',
-  integrations: [sparkleIntegration({ unoConfig }), UnoCSS({ injectReset: true })],
+  integrations: [blaskIntegration({ unoConfig }), UnoCSS({ injectReset: true })],
   server: { port: 4321 },
   vite: {
     server: {

@@ -1,11 +1,11 @@
 {
-  "name": "@sparkle-e2e/basics",
+  "name": "@e2e/basics",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@sparkle/astro": "workspace:*",
-    "@sparkle/core": "workspace:*",
+    "@blask/astro": "workspace:*",
+    "@blask/core": "workspace:*",
     "astro": "^5.0.0"
   }
 }

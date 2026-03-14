@@ -1,11 +1,11 @@
-import { defineElement, useEvent, useHost, useEffect } from "@sparkle/core"
+import { defineElement, useEvent, useHost, useEffect } from "@blask/core"
 
 const EventElement = defineElement(
   {
     tag: "event-element",
   },
   () => {
-    const dispatch = useEvent("sparkle:ping", {
+    const dispatch = useEvent("blask:ping", {
       bubbles: true,
       composed: true,
     })
