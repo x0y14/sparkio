@@ -1,5 +1,6 @@
 {
   "name": "root",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -20,6 +21,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/x0y14/blask.git"
+    "url": "git+https://github.com/x0y14/blask.git"
   }
 }
