@@ -1,0 +1,32 @@
+---
+import CounterElement from "../components/counter-element.ts";
+import LazyElement from "../components/lazy-element.ts";
+import StyledElement from "../components/styled-element.ts";
+import EventElement from "../components/event-element.ts";
+import SlotElement from "../components/slot-element.ts";
+---
+
+<html>
+  <head>
+    <title>sparkle-basics</title>
+    <script>
+      import "../components/event-element.ts";
+      import "../components/styled-element.ts";
+    </script>
+  </head>
+  <body>
+    <CounterElement client:load class:list={["host-class", "active"]} />
+
+    <div style="height: 200vh;"></div>
+    <LazyElement client:visible />
+
+    <StyledElement client:load style="--primary: rgb(255, 0, 0)" />
+
+    <EventElement client:load />
+
+    <SlotElement client:load>
+      <div>slot-child-1</div>
+      <div>slot-child-2</div>
+    </SlotElement>
+  </body>
+</html>
