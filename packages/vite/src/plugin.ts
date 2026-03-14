@@ -57,7 +57,7 @@ export function sparkleVitePlugin(options?: SparkleVitePluginOptions): Plugin {
       if (!uno) uno = await createGenerator(options?.unoConfig ?? {})
       const { css } = await uno.generate(code, { preflights, safelist })
       const escaped = css.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$")
-      let result = code.replace(CSS_PLACEHOLDER, escaped)
+      let result = code.replace(CSS_PLACEHOLDER, () => escaped)
       result = await resolveApply(result, uno)
       return {
         code: result,
