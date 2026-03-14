@@ -1,4 +1,12 @@
-const UNSAFE_PROPS = new Set(["innerHTML", "outerHTML", "textContent", "innerText"])
+const UNSAFE_PROPS = new Set([
+  "innerHTML",
+  "outerHTML",
+  "textContent",
+  "innerText",
+  "__proto__",
+  "constructor",
+  "prototype",
+])
 
 function isUnsafeProp(key: string): boolean {
   return UNSAFE_PROPS.has(key) || key.startsWith("on")
@@ -21,7 +29,7 @@ export default (element: HTMLElement) => {
     for (const [key, value] of Object.entries(props)) {
       if (schema) {
         // Schema exists: only allow keys defined in schema
-        if (key in schema && key in component) {
+        if (key in schema && key in component && !isUnsafeProp(key)) {
           ;(component as any)[key] = value
         }
       } else {
