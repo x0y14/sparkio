@@ -1,0 +1,43 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout>
+  <div class="app-shell">
+    <fit-header></fit-header>
+    <fit-palette></fit-palette>
+    <div class="canvas-area">
+      <fit-canvas></fit-canvas>
+      <fit-properties></fit-properties>
+    </div>
+  </div>
+</BaseLayout>
+<script>
+  import '../components/fit-header';
+  import '../components/fit-palette';
+  import '../components/fit-properties';
+  import '../components/fit-canvas';
+</script>
+<style>
+  .app-shell {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    grid-template-rows: 48px 1fr;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  fit-header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  fit-palette {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .canvas-area {
+    grid-column: 2;
+    grid-row: 2;
+    position: relative;
+    overflow: hidden;
+  }
+</style>

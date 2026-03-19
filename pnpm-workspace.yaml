@@ -5,3 +5,4 @@ packages:
   - "examples/ui"
   - "examples/charts"
   - "examples/figure"
+  - "examples/fit"
