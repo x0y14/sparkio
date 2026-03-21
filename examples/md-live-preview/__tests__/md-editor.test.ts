@@ -39,4 +39,32 @@ describe("md-editor", () => {
     await new Promise((r) => setTimeout(r, 0))
     expect(received).toBe("test")
   })
+
+  it("emits cursor-move event on click", async () => {
+    el = await createElement("md-editor")
+    let received: number | undefined
+    el.addEventListener("cursor-move", ((e: CustomEvent) => {
+      received = e.detail.offset
+    }) as EventListener)
+    const ta = sq(el, "textarea") as HTMLTextAreaElement
+    ta.value = "hello"
+    ta.setSelectionRange(3, 3)
+    ta.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(received).toBe(3)
+  })
+
+  it("emits cursor-move event on keyup", async () => {
+    el = await createElement("md-editor")
+    let received: number | undefined
+    el.addEventListener("cursor-move", ((e: CustomEvent) => {
+      received = e.detail.offset
+    }) as EventListener)
+    const ta = sq(el, "textarea") as HTMLTextAreaElement
+    ta.value = "hello"
+    ta.setSelectionRange(5, 5)
+    ta.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(received).toBe(5)
+  })
 })

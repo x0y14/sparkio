@@ -1,5 +1,5 @@
 import { defineElement, css, useEffect, useHost } from "@sparkio/core"
-import Markdoc from "@markdoc/markdoc"
+import { renderWithLocations, applyHighlight } from "../utils/markdoc-highlight"
 import "./md-editor"
 import "./md-preview"
 
@@ -16,17 +16,33 @@ const MdLivePreview = defineElement(
       const root = host.current.shadowRoot!
       const editor = root.querySelector("md-editor")
       if (!editor) return
-      const handler = ((e: Event) => {
+
+      let currentOffset = 0
+
+      const inputHandler = ((e: Event) => {
         if (!(e instanceof CustomEvent)) return
         const source = e.detail?.value ?? ""
-        const ast = Markdoc.parse(source)
-        const content = Markdoc.transform(ast)
-        const html = Markdoc.renderers.html(content)
+        const html = renderWithLocations(source)
         const preview = root.querySelector("md-preview") as any
-        if (preview) preview.content = html
+        if (preview) {
+          preview.content = html
+          setTimeout(() => applyHighlight(preview, currentOffset), 0)
+        }
       }) as EventListener
-      editor.addEventListener("input", handler)
-      return () => editor.removeEventListener("input", handler)
+
+      const cursorHandler = ((e: Event) => {
+        if (!(e instanceof CustomEvent)) return
+        currentOffset = e.detail?.offset ?? 0
+        const preview = root.querySelector("md-preview") as HTMLElement
+        if (preview) applyHighlight(preview, currentOffset)
+      }) as EventListener
+
+      editor.addEventListener("input", inputHandler)
+      editor.addEventListener("cursor-move", cursorHandler)
+      return () => {
+        editor.removeEventListener("input", inputHandler)
+        editor.removeEventListener("cursor-move", cursorHandler)
+      }
     }, [])
 
     return `<div class="flex flex-col h-full">

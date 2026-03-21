@@ -24,11 +24,42 @@ test.describe("Markdoc Live Preview integration", () => {
     await expect(items.first()).toHaveText("Item 1")
   })
 
+  test("highlights corresponding element on cursor position", async ({ page }) => {
+    await page.goto("/")
+    const textarea = page.locator("md-editor textarea")
+    await textarea.fill("# Hello\n\nSome paragraph")
+    await expect(page.locator("md-preview h1")).toBeVisible()
+    await textarea.click()
+    await textarea.press("Home")
+    await expect(page.locator("md-preview .highlight-active")).toBeVisible()
+  })
+
+  test("highlights inline element precisely", async ({ page }) => {
+    await page.goto("/")
+    const textarea = page.locator("md-editor textarea")
+    await textarea.fill("**bold** and *italic*")
+    await expect(page.locator("md-preview strong")).toBeVisible()
+    await textarea.click()
+    await textarea.press("Home")
+    await expect(page.locator("md-preview strong.highlight-active")).toBeVisible()
+  })
+
   test("screenshot: after real-time rendering", async ({ page }) => {
     await page.goto("/")
     const textarea = page.locator("md-editor textarea")
     await textarea.fill("# Hello\n\nThis is a **bold** paragraph.\n\n- Item 1\n- Item 2\n\n```\nconst x = 1\n```")
     await expect(page.locator("md-preview h1")).toBeVisible()
     await expect(page).toHaveScreenshot("after-preview.png")
+  })
+
+  test("screenshot: highlight active", async ({ page }) => {
+    await page.goto("/")
+    const textarea = page.locator("md-editor textarea")
+    await textarea.fill("# Hello\n\nSome **bold** text\n\n- Item 1\n- Item 2")
+    await expect(page.locator("md-preview h1")).toBeVisible()
+    await textarea.click()
+    await textarea.press("Home")
+    await expect(page.locator("md-preview .highlight-active")).toBeVisible()
+    await expect(page).toHaveScreenshot("highlight-active.png")
   })
 })

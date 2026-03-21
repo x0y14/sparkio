@@ -7,7 +7,11 @@ const MdPreview = defineElement(
       content: { type: String, value: () => "" },
     },
     styles: css`@unocss-placeholder
-:host { @apply block; }`,
+:host { @apply block; }
+.highlight-active {
+  border: 2px solid #3b82f6;
+  border-radius: 4px;
+}`,
   },
   (props) => {
     if (!props.content) {
