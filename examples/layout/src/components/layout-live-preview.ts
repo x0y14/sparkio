@@ -3,27 +3,19 @@ import "./layout-editor"
 import "./layout-preview"
 import "./layout-toolbox"
 import "./layout-node-inspector"
-import { parseLayoutNode, createNewNode } from "../utils/layout-parser"
-import { findDropTarget, extractLayoutGeometry } from "../utils/drop-target"
-import { insertNode, updateItemId, updateLayoutDirection, updateSpacerSize, updateItemWidth, updateItemHeight, removeNode } from "../utils/tree-ops"
+import { parseLayoutDocument, createNewNode } from "../utils/layout-parser"
+import type { LayoutDocument } from "../utils/layout-parser"
+import { findDropTarget, buildLayoutGeometry } from "../utils/drop-target"
+import { insertNode, updateItemId, updateLayoutDirection, updateNodeSizing, removeNode, getNode } from "../utils/tree-ops"
 import type { DropResult } from "../utils/drop-target"
+import { computeLayout, pxToFraction } from "../utils/compute-layout"
+import type { ResolvedNode } from "../utils/compute-layout"
 
 const LayoutLivePreview = defineElement(
   {
     tag: "layout-live-preview",
     styles: css`@unocss-placeholder
 :host { @apply block h-screen; }
-.drop-indicator {
-  height: 2px;
-  background: #3b82f6;
-  border-radius: 1px;
-}
-.drop-indicator-h {
-  width: 2px;
-  height: 100%;
-  background: #3b82f6;
-  border-radius: 1px;
-}
 .toggle-group { display: flex; gap: 4px; }
 .toggle-btn {
   padding: 4px 12px;
@@ -48,23 +40,41 @@ const LayoutLivePreview = defineElement(
       const editor = root.querySelector("layout-editor")
       if (!editor) return
 
-      // --- view mode toggle ---
       const editorPanel = root.querySelector("[data-panel='editor']") as HTMLElement
       const previewPanel = root.querySelector("[data-panel='preview']") as HTMLElement
       const previewBtn = root.querySelector("button[data-mode='preview']") as HTMLElement
       const editorBtnEl = root.querySelector("button[data-mode='editor']") as HTMLElement
 
       const setViewMode = (mode: "preview" | "editor") => {
-        if (mode === "preview") {
-          editorPanel.style.display = "none"
-          previewPanel.style.display = ""
-          previewBtn.classList.add("active")
-          editorBtnEl.classList.remove("active")
-        } else {
+        if (mode === "editor") {
+          // preview → JSON: 構造体をparse→dump（sizing補完込み）
+          const previewEl = root.querySelector("layout-preview") as any
+          const editorEl = root.querySelector("layout-editor") as any
+          if (previewEl && editorEl) {
+            const doc = parseLayoutDocument(previewEl.content)
+            if (doc) {
+              const json = JSON.stringify(doc, null, 2)
+              editorEl.value = json
+              const ta = editorEl.shadowRoot?.querySelector("textarea") as HTMLTextAreaElement
+              if (ta) ta.value = json
+            }
+          }
           editorPanel.style.display = ""
           previewPanel.style.display = "none"
           editorBtnEl.classList.add("active")
           previewBtn.classList.remove("active")
+        } else {
+          // JSON → preview: JSONをload
+          const editorEl = root.querySelector("layout-editor") as any
+          const previewEl = root.querySelector("layout-preview") as any
+          if (editorEl && previewEl) {
+            const ta = editorEl.shadowRoot?.querySelector("textarea") as HTMLTextAreaElement
+            if (ta) previewEl.content = ta.value
+          }
+          editorPanel.style.display = "none"
+          previewPanel.style.display = ""
+          previewBtn.classList.add("active")
+          editorBtnEl.classList.remove("active")
         }
       }
 
@@ -78,7 +88,10 @@ const LayoutLivePreview = defineElement(
       const headerEl = root.querySelector("header")
       headerEl?.addEventListener("click", toggleClickHandler)
 
-      // --- helper: editorとpreviewを更新 ---
+      const updateAllWithDoc = (doc: LayoutDocument) => {
+        updateAll(JSON.stringify(doc, null, 2))
+      }
+
       const updateAll = (json: string) => {
         const editorEl = root.querySelector("layout-editor") as any
         if (editorEl) {
@@ -90,7 +103,6 @@ const LayoutLivePreview = defineElement(
         if (previewEl) previewEl.content = json
       }
 
-      // --- editor → preview ---
       const inputHandler = ((e: Event) => {
         if (!(e instanceof CustomEvent)) return
         const value = e.detail?.value ?? ""
@@ -100,12 +112,11 @@ const LayoutLivePreview = defineElement(
         }
       }) as EventListener
 
-      // --- preview → editor (layout-change) ---
       const layoutChangeHandler = ((e: Event) => {
         if (!(e instanceof CustomEvent)) return
-        const tree = e.detail?.tree
-        if (!tree) return
-        updateAll(JSON.stringify(tree, null, 2))
+        const doc = e.detail?.doc as LayoutDocument | undefined
+        if (!doc) return
+        updateAllWithDoc(doc)
       }) as EventListener
 
       // --- ツールボックスドラッグ ---
@@ -129,15 +140,31 @@ const LayoutLivePreview = defineElement(
       const showToolboxIndicator = (layout: Element, index: number, direction: string) => {
         if (indicatorEl) indicatorEl.remove()
         indicatorEl = document.createElement("div")
-        indicatorEl.className = direction === "vertical" ? "drop-indicator" : "drop-indicator-h"
         indicatorEl.setAttribute("data-drop-indicator", "")
 
         const children = [...layout.children].filter(c => c.hasAttribute("data-path"))
-        if (children.length === 0 || index >= children.length) {
-          layout.appendChild(indicatorEl)
+
+        if (direction === "vertical") {
+          let topPx: number
+          if (children.length === 0 || index >= children.length) {
+            const lastChild = children[children.length - 1] as HTMLElement | undefined
+            topPx = lastChild ? parseFloat(lastChild.style.top) + parseFloat(lastChild.style.height) : 0
+          } else {
+            topPx = parseFloat((children[index] as HTMLElement).style.top)
+          }
+          indicatorEl.style.cssText = `position: absolute; left: 0; right: 0; top: ${topPx}px; height: 2px; background: #3b82f6; border-radius: 1px;`
         } else {
-          layout.insertBefore(indicatorEl, children[index])
+          let leftPx: number
+          if (children.length === 0 || index >= children.length) {
+            const lastChild = children[children.length - 1] as HTMLElement | undefined
+            leftPx = lastChild ? parseFloat(lastChild.style.left) + parseFloat(lastChild.style.width) : 0
+          } else {
+            leftPx = parseFloat((children[index] as HTMLElement).style.left)
+          }
+          indicatorEl.style.cssText = `position: absolute; top: 0; bottom: 0; left: ${leftPx}px; width: 2px; background: #3b82f6; border-radius: 1px;`
         }
+
+        layout.appendChild(indicatorEl)
       }
 
       const toolboxMousedownHandler = ((e: Event) => {
@@ -162,8 +189,16 @@ const LayoutLivePreview = defineElement(
 
         const previewEl = root.querySelector("layout-preview") as HTMLElement
         if (!previewEl?.shadowRoot) return
-        const layouts = extractLayoutGeometry(previewEl.shadowRoot)
-        const drop = findDropTarget(layouts, mouseEvent.clientX, mouseEvent.clientY, null)
+        const doc = parseLayoutDocument((previewEl as any).content)
+        if (!doc) return
+        const rootLayoutEl = previewEl.shadowRoot.querySelector("[data-path='']") as HTMLElement
+        if (!rootLayoutEl) return
+        const rootRect = rootLayoutEl.getBoundingClientRect()
+        const resolved = computeLayout(doc, rootRect.width, rootRect.height)
+        const layouts = buildLayoutGeometry(resolved)
+        const mouseXPx = mouseEvent.clientX - rootRect.left
+        const mouseYPx = mouseEvent.clientY - rootRect.top
+        const drop = findDropTarget(layouts, mouseXPx, mouseYPx, null)
         currentDropResult = drop
 
         if (drop) {
@@ -184,18 +219,19 @@ const LayoutLivePreview = defineElement(
 
         const previewEl = root.querySelector("layout-preview") as any
         if (previewEl) {
-          const tree = parseLayoutNode(previewEl.content)
+          const doc = parseLayoutDocument(previewEl.content)
           const newNode = createNewNode(toolboxDragType!)
-          let newTree: import("../utils/layout-parser").LayoutNode | null = null
+          let newDoc: LayoutDocument | null = null
 
-          if (tree && drop) {
-            newTree = insertNode(tree, drop.targetPath, drop.insertIndex, newNode)
-          } else if (!tree) {
-            newTree = newNode
+          if (doc && drop) {
+            const newRoot = insertNode(doc.node, drop.targetPath, drop.insertIndex, newNode)
+            if (newRoot) newDoc = { ...doc, node: newRoot }
+          } else if (!doc) {
+            newDoc = { settings: { gap: 8, padding: 8 }, node: newNode }
           }
 
-          if (newTree) {
-            updateAll(JSON.stringify(newTree, null, 2))
+          if (newDoc) {
+            updateAllWithDoc(newDoc)
           }
         }
 
@@ -203,7 +239,7 @@ const LayoutLivePreview = defineElement(
         currentDropResult = null
       }) as EventListener
 
-      // --- inspector配線 ---
+      // --- inspector ---
       let selectedNodePath: string | null = null
 
       const nodeSelectHandler = ((e: Event) => {
@@ -212,111 +248,126 @@ const LayoutLivePreview = defineElement(
         selectedNodePath = detail.path
         const inspector = root.querySelector("layout-node-inspector") as any
         if (!inspector) return
-        if (detail.path === null) {
+
+        const clearInspector = () => {
           inspector.nodeType = ""
           inspector.nodeId = ""
           inspector.nodeDirection = ""
-          inspector.nodeSize = ""
-          inspector.nodeWidth = ""
-          inspector.nodeHeight = ""
-        } else if (detail.nodeType === "item") {
-          inspector.nodeType = "item"
-          inspector.nodeId = detail.nodeId ?? ""
-          inspector.nodeDirection = ""
-          inspector.nodeSize = ""
-          inspector.nodeWidth = detail.itemWidth ?? "auto"
-          inspector.nodeHeight = detail.itemHeight ?? "auto"
-        } else if (detail.nodeType === "spacer") {
-          inspector.nodeType = "spacer"
-          inspector.nodeId = ""
-          inspector.nodeDirection = ""
-          inspector.nodeSize = detail.spacerSize ?? ""
-          inspector.nodeWidth = ""
-          inspector.nodeHeight = ""
+          inspector.nodeSizing = ""
+          inspector.nodeRatioW = ""
+          inspector.nodeRatioH = ""
+          inspector.nodeRemW = ""
+          inspector.nodeRemH = ""
+        }
+
+        if (detail.path === null) {
+          clearInspector()
         } else {
-          inspector.nodeType = "layout"
-          inspector.nodeId = ""
-          inspector.nodeDirection = detail.direction ?? ""
-          inspector.nodeSize = ""
-          inspector.nodeWidth = ""
-          inspector.nodeHeight = ""
+          const previewEl = root.querySelector("layout-preview") as any
+          const doc = previewEl ? parseLayoutDocument(previewEl.content) : null
+          const node = doc ? getNode(doc.node, detail.path) : null
+          const n = node as any
+
+          inspector.nodeType = detail.nodeType
+          inspector.nodeId = detail.nodeType === "item" ? (detail.nodeId ?? "") : ""
+          inspector.nodeDirection = detail.nodeType === "layout" ? (detail.direction ?? "") : ""
+          inspector.nodeSizing = n?.sizing ?? ""
+          inspector.nodeRatioW = n?.ratioW ?? ""
+          inspector.nodeRatioH = n?.ratioH ?? ""
+          inspector.nodeRemW = n?.remW != null ? String(n.remW) : ""
+          inspector.nodeRemH = n?.remH != null ? String(n.remH) : ""
         }
       }) as EventListener
 
       const idChangeHandler = ((e: Event) => {
-        if (!(e instanceof CustomEvent)) return
-        if (selectedNodePath === null) return
+        if (!(e instanceof CustomEvent) || selectedNodePath === null) return
         const previewEl = root.querySelector("layout-preview") as any
         if (!previewEl) return
-        const tree = parseLayoutNode(previewEl.content)
-        if (!tree) return
-        const newTree = updateItemId(tree, selectedNodePath, e.detail.id)
-        if (!newTree) return
-        updateAll(JSON.stringify(newTree, null, 2))
+        const doc = parseLayoutDocument(previewEl.content)
+        if (!doc) return
+        const newRoot = updateItemId(doc.node, selectedNodePath, e.detail.id)
+        if (!newRoot) return
+        updateAllWithDoc({ ...doc, node: newRoot })
       }) as EventListener
 
       const directionChangeHandler = ((e: Event) => {
-        if (!(e instanceof CustomEvent)) return
-        if (selectedNodePath === null) return
+        if (!(e instanceof CustomEvent) || selectedNodePath === null) return
         const previewEl = root.querySelector("layout-preview") as any
         if (!previewEl) return
-        const tree = parseLayoutNode(previewEl.content)
-        if (!tree) return
+        const doc = parseLayoutDocument(previewEl.content)
+        if (!doc) return
         const dir = e.detail.direction as "vertical" | "horizontal"
-        const newTree = updateLayoutDirection(tree, selectedNodePath, dir)
-        if (!newTree) return
-        updateAll(JSON.stringify(newTree, null, 2))
+        const newRoot = updateLayoutDirection(doc.node, selectedNodePath, dir)
+        if (!newRoot) return
+        updateAllWithDoc({ ...doc, node: newRoot })
       }) as EventListener
 
-      const sizeChangeHandler = ((e: Event) => {
-        if (!(e instanceof CustomEvent)) return
-        if (selectedNodePath === null) return
-        const previewEl = root.querySelector("layout-preview") as any
-        if (!previewEl) return
-        const tree = parseLayoutNode(previewEl.content)
-        if (!tree) return
-        const newTree = updateSpacerSize(tree, selectedNodePath, e.detail.size)
-        if (!newTree) return
-        updateAll(JSON.stringify(newTree, null, 2))
-      }) as EventListener
+      const findResolved = (r: ResolvedNode, path: string): ResolvedNode | null => {
+        if (path === "") return r
+        const indices = path.split(".").map(Number)
+        let current = r
+        for (const i of indices) {
+          if (!current.children || i >= current.children.length) return null
+          current = current.children[i]
+        }
+        return current
+      }
 
-      const widthChangeHandler = ((e: Event) => {
-        if (!(e instanceof CustomEvent)) return
-        if (selectedNodePath === null) return
+      const sizingChangeHandler = ((e: Event) => {
+        if (!(e instanceof CustomEvent) || selectedNodePath === null) return
         const previewEl = root.querySelector("layout-preview") as any
         if (!previewEl) return
-        const tree = parseLayoutNode(previewEl.content)
-        if (!tree) return
-        const newTree = updateItemWidth(tree, selectedNodePath, e.detail.width)
-        if (!newTree) return
-        updateAll(JSON.stringify(newTree, null, 2))
-      }) as EventListener
+        const doc = parseLayoutDocument(previewEl.content)
+        if (!doc) return
 
-      const heightChangeHandler = ((e: Event) => {
-        if (!(e instanceof CustomEvent)) return
-        if (selectedNodePath === null) return
-        const previewEl = root.querySelector("layout-preview") as any
-        if (!previewEl) return
-        const tree = parseLayoutNode(previewEl.content)
-        if (!tree) return
-        const newTree = updateItemHeight(tree, selectedNodePath, e.detail.height)
-        if (!newTree) return
-        updateAll(JSON.stringify(newTree, null, 2))
+        let newSizing = e.detail
+
+        if (e.detail._convert) {
+          const panelEl = root.querySelector("[data-panel='preview']") as HTMLElement
+          if (panelEl) {
+            const remSize = parseFloat(getComputedStyle(panelEl).fontSize) || 16
+            const containerRect = panelEl.getBoundingClientRect()
+            const resolved = computeLayout(doc, containerRect.width, containerRect.height, remSize)
+            const currentResolved = findResolved(resolved, selectedNodePath)
+            if (currentResolved) {
+              const { w, h } = currentResolved
+              if (e.detail.sizing === "ratio") {
+                newSizing = {
+                  sizing: "ratio" as const,
+                  ratioW: pxToFraction(w, containerRect.width),
+                  ratioH: pxToFraction(h, containerRect.height),
+                }
+              } else if (e.detail.sizing === "rem") {
+                newSizing = {
+                  sizing: "rem" as const,
+                  remW: Math.round(w / remSize * 100) / 100,
+                  remH: Math.round(h / remSize * 100) / 100,
+                }
+              } else {
+                newSizing = { sizing: "auto" as const }
+              }
+            }
+          }
+        }
+
+        const newRoot = updateNodeSizing(doc.node, selectedNodePath, newSizing)
+        if (!newRoot) return
+        updateAllWithDoc({ ...doc, node: newRoot })
       }) as EventListener
 
       const nodeDeleteHandler = ((_e: Event) => {
         if (selectedNodePath === null) return
         const previewEl = root.querySelector("layout-preview") as any
         if (!previewEl) return
-        const tree = parseLayoutNode(previewEl.content)
-        if (!tree) return
+        const doc = parseLayoutDocument(previewEl.content)
+        if (!doc) return
 
         if (selectedNodePath === "") {
           updateAll("")
         } else {
-          const result = removeNode(tree, selectedNodePath)
+          const result = removeNode(doc.node, selectedNodePath)
           if (!result) return
-          updateAll(JSON.stringify(result.tree, null, 2))
+          updateAllWithDoc({ ...doc, node: result.tree })
         }
 
         selectedNodePath = null
@@ -325,9 +376,11 @@ const LayoutLivePreview = defineElement(
           inspector.nodeType = ""
           inspector.nodeId = ""
           inspector.nodeDirection = ""
-          inspector.nodeSize = ""
-          inspector.nodeWidth = ""
-          inspector.nodeHeight = ""
+          inspector.nodeSizing = ""
+          inspector.nodeRatioW = ""
+          inspector.nodeRatioH = ""
+          inspector.nodeRemW = ""
+          inspector.nodeRemH = ""
         }
       }) as EventListener
 
@@ -339,10 +392,8 @@ const LayoutLivePreview = defineElement(
       previewEl?.addEventListener("node-select", nodeSelectHandler)
       inspectorEl?.addEventListener("id-change", idChangeHandler)
       inspectorEl?.addEventListener("direction-change", directionChangeHandler)
-      inspectorEl?.addEventListener("size-change", sizeChangeHandler)
+      inspectorEl?.addEventListener("sizing-change", sizingChangeHandler)
       inspectorEl?.addEventListener("node-delete", nodeDeleteHandler)
-      inspectorEl?.addEventListener("width-change", widthChangeHandler)
-      inspectorEl?.addEventListener("height-change", heightChangeHandler)
 
       root.addEventListener("mousedown", toolboxMousedownHandler)
       root.addEventListener("mousemove", toolboxMousemoveHandler)
@@ -355,10 +406,8 @@ const LayoutLivePreview = defineElement(
         previewEl?.removeEventListener("node-select", nodeSelectHandler)
         inspectorEl?.removeEventListener("id-change", idChangeHandler)
         inspectorEl?.removeEventListener("direction-change", directionChangeHandler)
-        inspectorEl?.removeEventListener("size-change", sizeChangeHandler)
+        inspectorEl?.removeEventListener("sizing-change", sizingChangeHandler)
         inspectorEl?.removeEventListener("node-delete", nodeDeleteHandler)
-        inspectorEl?.removeEventListener("width-change", widthChangeHandler)
-        inspectorEl?.removeEventListener("height-change", heightChangeHandler)
         root.removeEventListener("mousedown", toolboxMousedownHandler)
         root.removeEventListener("mousemove", toolboxMousemoveHandler)
         root.removeEventListener("mouseup", toolboxMouseupHandler)

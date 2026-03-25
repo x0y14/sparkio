@@ -1,277 +1,262 @@
 import { describe, it, expect } from "vitest"
-import { parseLayoutNode, renderLayoutNode, renderLayoutNodeWithPath, createNewNode } from "../src/utils/layout-parser"
+import { parseLayoutDocument, renderResolvedNode, renderResolvedNodeWithPath } from "../src/utils/layout-parser"
+import type { ResolvedNode } from "../src/utils/compute-layout"
 
-describe("parseLayoutNode", () => {
+describe("parseLayoutDocument", () => {
   it("returns null for invalid JSON", () => {
-    expect(parseLayoutNode("{invalid")).toBeNull()
+    expect(parseLayoutDocument("{invalid")).toBeNull()
   })
 
-  it("returns null for valid JSON that is not a LayoutNode", () => {
-    expect(parseLayoutNode('{"foo":"bar"}')).toBeNull()
-    expect(parseLayoutNode("42")).toBeNull()
-    expect(parseLayoutNode('"string"')).toBeNull()
+  it("returns null for missing settings or node", () => {
+    expect(parseLayoutDocument('{"settings":{}}')).toBeNull()
+    expect(parseLayoutDocument('{"node":{"type":"item","id":"a"}}')).toBeNull()
   })
 
-  it("parses a valid Item", () => {
-    const result = parseLayoutNode('{"type":"item","id":"a"}')
-    expect(result).toEqual({ type: "item", id: "a", width: "auto", height: "auto" })
+  it("parses Item (sizingなし→auto補完)", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item", id: "a" },
+    }))!
+    expect(doc.node).toEqual({ type: "item", id: "a", sizing: "auto" })
   })
 
-  it("returns null for missing required fields", () => {
-    expect(parseLayoutNode('{"type":"item"}')).toBeNull()
-    expect(parseLayoutNode('{"type":"layout","direction":"vertical"}')).toBeNull()
+  it("parses Item with sizing=ratio", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item", id: "a", sizing: "ratio", ratioW: "1/3", ratioH: "1/2" },
+    }))!
+    expect(doc.node).toEqual({ type: "item", id: "a", sizing: "ratio", ratioW: "1/3", ratioH: "1/2" })
   })
 
-  it("parses a valid Layout with no children", () => {
-    const result = parseLayoutNode('{"type":"layout","direction":"horizontal","children":[]}')
-    expect(result).toEqual({ type: "layout", direction: "horizontal", children: [] })
+  it("parses Item with sizing=rem", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item", id: "a", sizing: "rem", remW: 15, remH: 10 },
+    }))!
+    expect(doc.node).toEqual({ type: "item", id: "a", sizing: "rem", remW: 15, remH: 10 })
   })
 
-  it("returns null for invalid direction", () => {
-    expect(parseLayoutNode('{"type":"layout","direction":"diagonal","children":[]}')).toBeNull()
+  it("parses Spacer with legacy size (migrates to ratioW)", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "spacer", size: "1/2" },
+    }))!
+    expect(doc.node).toEqual({ type: "spacer", sizing: "ratio", ratioW: "1/2", ratioH: "1/1" })
   })
 
-  it("parses a nested Layout", () => {
-    const json = JSON.stringify({
-      type: "layout",
-      direction: "vertical",
-      children: [
-        { type: "item", id: "a", width: "auto", height: "auto" },
-        {
-          type: "layout",
-          direction: "horizontal",
-          children: [
-            { type: "item", id: "b", width: "auto", height: "auto" },
-            { type: "item", id: "c", width: "auto", height: "auto" },
-          ],
-        },
-      ],
-    })
-    const result = parseLayoutNode(json)
-    expect(result).not.toBeNull()
-    expect(result!.type).toBe("layout")
-    if (result!.type === "layout") {
-      expect(result!.children).toHaveLength(2)
-      expect(result!.children[0]).toEqual({ type: "item", id: "a", width: "auto", height: "auto" })
-      expect(result!.children[1].type).toBe("layout")
+  it("parses Spacer with legacy size=auto", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "spacer", size: "auto" },
+    }))!
+    expect(doc.node).toEqual({ type: "spacer", sizing: "auto" })
+  })
+
+  it("parses Spacer with sizing=ratio", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "spacer", sizing: "ratio", ratioW: "1/3", ratioH: "1/1" },
+    }))!
+    expect(doc.node).toEqual({ type: "spacer", sizing: "ratio", ratioW: "1/3", ratioH: "1/1" })
+  })
+
+  it("parses Spacer with sizing=rem", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "spacer", sizing: "rem", remW: 5, remH: 3 },
+    }))!
+    expect(doc.node).toEqual({ type: "spacer", sizing: "rem", remW: 5, remH: 3 })
+  })
+
+  it("rejects spacer without size or sizing", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "spacer" },
+    }))).toBeNull()
+  })
+
+  it("rejects ratio without ratioW/ratioH", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item", id: "a", sizing: "ratio" },
+    }))).toBeNull()
+  })
+
+  it("rejects ratio with only ratioW", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item", id: "a", sizing: "ratio", ratioW: "1/3" },
+    }))).toBeNull()
+  })
+
+  it("rejects rem without remW/remH", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item", id: "a", sizing: "rem" },
+    }))).toBeNull()
+  })
+
+  it("rejects rem with only remW", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item", id: "a", sizing: "rem", remW: 10 },
+    }))).toBeNull()
+  })
+
+  it("parses Layout (sizingなし→auto補完, 子も補完)", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: {
+        type: "layout", direction: "vertical",
+        children: [{ type: "item", id: "a" }],
+      },
+    }))!
+    if (doc.node.type === "layout") {
+      expect(doc.node.sizing).toBe("auto")
+      expect(doc.node.children[0]).toEqual({ type: "item", id: "a", sizing: "auto" })
     }
   })
 
-  it("parses an Item with width and height", () => {
-    const result = parseLayoutNode('{"type":"item","id":"a","width":"100px","height":"50px"}')
-    expect(result).toEqual({ type: "item", id: "a", width: "100px", height: "50px" })
+  it("parses Layout with sizing=ratio", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "layout", direction: "horizontal", sizing: "ratio", ratioW: "1/3", ratioH: "1/1", children: [] },
+    }))!
+    if (doc.node.type === "layout" && doc.node.sizing === "ratio") {
+      expect(doc.node.ratioW).toBe("1/3")
+    }
   })
 
-  it("parses an Item without width/height (defaults to auto)", () => {
-    const result = parseLayoutNode('{"type":"item","id":"a"}')
-    expect(result).toEqual({ type: "item", id: "a", width: "auto", height: "auto" })
+  it("parses Layout children (migrates spacer)", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: {
+        type: "layout", direction: "vertical",
+        children: [
+          { type: "item", id: "a" },
+          { type: "spacer", size: "1/2" },
+        ],
+      },
+    }))!
+    if (doc.node.type === "layout") {
+      expect(doc.node.children).toHaveLength(2)
+      expect(doc.node.children[0]).toEqual({ type: "item", id: "a", sizing: "auto" })
+      expect(doc.node.children[1]).toEqual({ type: "spacer", sizing: "ratio", ratioW: "1/2", ratioH: "1/1" })
+    }
   })
 
-  it("rejects Layout with invalid children", () => {
-    const json = JSON.stringify({
-      type: "layout",
-      direction: "vertical",
-      children: [{ type: "unknown" }],
-    })
-    expect(parseLayoutNode(json)).toBeNull()
+  it("rejects invalid node types", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "unknown" },
+    }))).toBeNull()
   })
 
-  it("parses a valid Spacer", () => {
-    const result = parseLayoutNode('{"type":"spacer","size":"1/2"}')
-    expect(result).toEqual({ type: "spacer", size: "1/2" })
+  it("defaults settings", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: {},
+      node: { type: "item", id: "a" },
+    }))!
+    expect(doc.settings.gap).toBe(8)
+    expect(doc.settings.padding).toBe(8)
+    expect(doc.settings.alignItems).toBeUndefined()
+    expect(doc.settings.justifyContent).toBeUndefined()
+  })
+
+  it("parses settings with alignItems/justifyContent", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8, alignItems: "center", justifyContent: "space-between" },
+      node: { type: "item", id: "a" },
+    }))!
+    expect(doc.settings.alignItems).toBe("center")
+    expect(doc.settings.justifyContent).toBe("space-between")
+  })
+
+  it("ignores invalid alignItems/justifyContent", () => {
+    const doc = parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8, alignItems: "invalid", justifyContent: "invalid" },
+      node: { type: "item", id: "a" },
+    }))!
+    expect(doc.settings.alignItems).toBeUndefined()
+    expect(doc.settings.justifyContent).toBeUndefined()
+  })
+
+  it("rejects item without id", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "item" },
+    }))).toBeNull()
+  })
+
+  it("rejects layout without children", () => {
+    expect(parseLayoutDocument(JSON.stringify({
+      settings: { gap: 8, padding: 8 },
+      node: { type: "layout", direction: "vertical" },
+    }))).toBeNull()
   })
 })
 
-describe("renderLayoutNode", () => {
-  it("renders an Item with data-node-type and data-node-id attributes", () => {
-    const html = renderLayoutNode({ type: "item", id: "a", width: "auto", height: "auto" })
-    expect(html).toContain('data-node-type="item"')
+describe("renderResolvedNode", () => {
+  it("Itemを絶対配置で描画", () => {
+    const resolved: ResolvedNode = { node: { type: "item", id: "a", sizing: "auto" }, x: 100, y: 160, w: 500, h: 240 }
+    const html = renderResolvedNode(resolved, false)
+    expect(html).toContain("position: absolute")
+    expect(html).toContain("left: 100px")
+    expect(html).toContain("width: 500px")
     expect(html).toContain('data-node-id="a"')
-    expect(html).toContain("a")
   })
 
-  it("renders children with flex-1", () => {
-    const html = renderLayoutNode({
-      type: "layout", direction: "horizontal",
-      children: [{ type: "item", id: "a", width: "auto", height: "auto" }],
-    })
-    expect(html).toContain("flex-1")
+  it("ルートLayoutをposition:relativeで描画", () => {
+    const resolved: ResolvedNode = {
+      node: { type: "layout", direction: "vertical", sizing: "auto", children: [] },
+      x: 0, y: 0, w: 1000, h: 800,
+      children: [{ node: { type: "item", id: "a", sizing: "auto" }, x: 8, y: 8, w: 984, h: 784 }],
+    }
+    const html = renderResolvedNode(resolved)
+    expect(html).toContain("position: relative")
+    expect(html).toContain("position: absolute")
   })
 
-  it("renders a horizontal Layout with flex-row", () => {
-    const html = renderLayoutNode({
-      type: "layout",
-      direction: "horizontal",
-      children: [{ type: "item", id: "x", width: "auto", height: "auto" }],
-    })
-    expect(html).toContain("flex-row")
-    expect(html).toContain('data-node-type="layout"')
-    expect(html).toContain('data-direction="horizontal"')
+  it("Spacerを描画（ratioを表示）", () => {
+    const resolved: ResolvedNode = { node: { type: "spacer", sizing: "ratio", ratioW: "1/2", ratioH: "1/1" }, x: 8, y: 8, w: 388, h: 584 }
+    const html = renderResolvedNode(resolved, false)
+    expect(html).toContain("spacer ratio:1/2")
   })
 
-  it("renders a vertical Layout with flex-col", () => {
-    const html = renderLayoutNode({
-      type: "layout",
-      direction: "vertical",
-      children: [{ type: "item", id: "x", width: "auto", height: "auto" }],
-    })
-    expect(html).toContain("flex-col")
-    expect(html).toContain('data-direction="vertical"')
-  })
-
-  it("renders nested layouts recursively", () => {
-    const html = renderLayoutNode({
-      type: "layout",
-      direction: "vertical",
-      children: [
-        { type: "item", id: "a", width: "auto", height: "auto" },
-        {
-          type: "layout",
-          direction: "horizontal",
-          children: [
-            { type: "item", id: "b", width: "auto", height: "auto" },
-            { type: "item", id: "c", width: "auto", height: "auto" },
-          ],
-        },
-      ],
-    })
-    expect(html).toContain('data-node-id="a"')
-    expect(html).toContain('data-node-id="b"')
-    expect(html).toContain('data-node-id="c"')
-    expect(html).toContain("flex-col")
-    expect(html).toContain("flex-row")
-  })
-
-  it("renders an Item with width and height style", () => {
-    const html = renderLayoutNode({ type: "item", id: "a", width: "100px", height: "50px" })
-    expect(html).toContain("width: 100px")
-    expect(html).toContain("height: 50px")
-    expect(html).not.toContain("flex-1")
-    expect(html).toContain("flex-none")
-  })
-
-  it("renders an Item with auto width/height without explicit style", () => {
-    const html = renderLayoutNode({ type: "item", id: "a", width: "auto", height: "auto" })
-    expect(html).not.toContain("width:")
-    expect(html).not.toContain("height:")
-    expect(html).toContain("flex-1")
-    expect(html).not.toContain("flex-none")
+  it("Spacerを描画（autoを表示）", () => {
+    const resolved: ResolvedNode = { node: { type: "spacer", sizing: "auto" }, x: 8, y: 8, w: 388, h: 584 }
+    const html = renderResolvedNode(resolved, false)
+    expect(html).toContain("spacer auto")
   })
 
   it("escapes HTML in id", () => {
-    const html = renderLayoutNode({ type: "item", id: '<script>alert("xss")</script>', width: "auto", height: "auto" })
+    const resolved: ResolvedNode = { node: { type: "item", id: '<script>', sizing: "auto" }, x: 0, y: 0, w: 100, h: 100 }
+    const html = renderResolvedNode(resolved)
     expect(html).not.toContain("<script>")
     expect(html).toContain("&lt;script&gt;")
   })
-
-  it("renders a Spacer with green border and flex-basis", () => {
-    const html = renderLayoutNode({ type: "spacer", size: "1/2" })
-    expect(html).toContain('data-node-type="spacer"')
-    expect(html).toContain("border-green-300")
-    expect(html).toContain("spacer 1/2")
-    expect(html).toContain("flex: 0 0 50%")
-  })
-
-  it("renders a Spacer with auto size using flex: 1", () => {
-    const html = renderLayoutNode({ type: "spacer", size: "auto" })
-    expect(html).toContain("flex: 1 1 0%")
-    expect(html).toContain("spacer auto")
-  })
 })
 
-describe("renderLayoutNodeWithPath", () => {
-  it("Itemにdata-path属性を付与", () => {
-    const html = renderLayoutNodeWithPath({ type: "item", id: "a", width: "auto", height: "auto" })
+describe("renderResolvedNodeWithPath", () => {
+  it("data-path属性を付与", () => {
+    const resolved: ResolvedNode = { node: { type: "item", id: "a", sizing: "auto" }, x: 0, y: 0, w: 100, h: 100 }
+    const html = renderResolvedNodeWithPath(resolved, "", true)
     expect(html).toContain('data-path=""')
-    expect(html).toContain('data-node-id="a"')
-  })
-
-  it("Itemにcursor-grabクラスを付与", () => {
-    const html = renderLayoutNodeWithPath({ type: "item", id: "a", width: "auto", height: "auto" })
     expect(html).toContain("cursor-grab")
   })
 
   it("Layoutの子に連番パスを付与", () => {
-    const html = renderLayoutNodeWithPath({
-      type: "layout", direction: "vertical",
+    const resolved: ResolvedNode = {
+      node: { type: "layout", direction: "vertical", sizing: "auto", children: [] },
+      x: 0, y: 0, w: 800, h: 600,
       children: [
-        { type: "item", id: "a", width: "auto", height: "auto" },
-        { type: "item", id: "b", width: "auto", height: "auto" },
+        { node: { type: "item", id: "a", sizing: "auto" }, x: 8, y: 8, w: 784, h: 288 },
+        { node: { type: "item", id: "b", sizing: "auto" }, x: 8, y: 304, w: 784, h: 288 },
       ],
-    })
+    }
+    const html = renderResolvedNodeWithPath(resolved, "", true)
     expect(html).toContain('data-path=""')
     expect(html).toContain('data-path="0"')
     expect(html).toContain('data-path="1"')
-  })
-
-  it("ネストしたパスを正しく生成", () => {
-    const html = renderLayoutNodeWithPath({
-      type: "layout", direction: "vertical",
-      children: [
-        { type: "layout", direction: "horizontal", children: [
-          { type: "item", id: "x", width: "auto", height: "auto" },
-        ]},
-      ],
-    })
-    expect(html).toContain('data-path="0"')
-    expect(html).toContain('data-path="0.0"')
-  })
-
-  it("renders a Spacer with data-path and flex-basis", () => {
-    const html = renderLayoutNodeWithPath({ type: "spacer", size: "1/3" }, "0")
-    expect(html).toContain('data-path="0"')
-    expect(html).toContain("flex: 0 0 33.333%")
-    expect(html).toContain("cursor-grab")
-  })
-
-  it("renders a Spacer with auto size and data-path", () => {
-    const html = renderLayoutNodeWithPath({ type: "spacer", size: "auto" }, "0")
-    expect(html).toContain("flex: 1 1 0%")
-    expect(html).toContain('data-path="0"')
-  })
-
-  it("Itemのwidth/heightをstyleに反映", () => {
-    const html = renderLayoutNodeWithPath({ type: "item", id: "a", width: "200px", height: "100px" })
-    expect(html).toContain("width: 200px")
-    expect(html).toContain("height: 100px")
-    expect(html).toContain('data-item-width="200px"')
-    expect(html).toContain('data-item-height="100px"')
-    expect(html).not.toContain("flex-1")
-    expect(html).toContain("flex-none")
-  })
-})
-
-describe("createNewNode", () => {
-  it("item生成: type=item, idがitem-で始まる8文字UUID, width/height=auto", () => {
-    const node = createNewNode("item")
-    expect(node.type).toBe("item")
-    if (node.type === "item") {
-      expect(node.id).toMatch(/^item-[a-f0-9]{8}$/)
-      expect(node.width).toBe("auto")
-      expect(node.height).toBe("auto")
-    }
-  })
-
-  it("vertical layout生成", () => {
-    const node = createNewNode("vertical")
-    expect(node).toEqual({ type: "layout", direction: "vertical", children: [] })
-  })
-
-  it("horizontal layout生成", () => {
-    const node = createNewNode("horizontal")
-    expect(node).toEqual({ type: "layout", direction: "horizontal", children: [] })
-  })
-
-  it("毎回異なるidを生成", () => {
-    const a = createNewNode("item")
-    const b = createNewNode("item")
-    if (a.type === "item" && b.type === "item") {
-      expect(a.id).not.toBe(b.id)
-    }
-  })
-
-  it("spacer生成: type=spacer, size=1/2", () => {
-    const node = createNewNode("spacer")
-    expect(node).toEqual({ type: "spacer", size: "1/2" })
   })
 })

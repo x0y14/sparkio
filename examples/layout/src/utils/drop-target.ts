@@ -1,4 +1,5 @@
 import { isAncestorPath } from "./tree-ops"
+import type { ResolvedNode } from "./compute-layout"
 
 export interface LayoutGeometry {
   path: string
@@ -45,22 +46,29 @@ export function findDropTarget(
   return null
 }
 
-export function extractLayoutGeometry(root: Element | ShadowRoot): LayoutGeometry[] {
-  const layouts: LayoutGeometry[] = []
-  const elements = root.querySelectorAll("[data-node-type='layout']")
-  for (const el of elements) {
-    const path = el.getAttribute("data-path") ?? ""
-    const direction = el.getAttribute("data-direction") as "vertical" | "horizontal"
-    const rect = el.getBoundingClientRect()
-    const childRects: LayoutGeometry["childRects"] = []
-    for (const child of el.children) {
-      const childPath = child.getAttribute("data-path")
-      if (childPath) {
-        const childRect = child.getBoundingClientRect()
-        childRects.push({ path: childPath, rect: { x: childRect.x, y: childRect.y, width: childRect.width, height: childRect.height } })
+export function buildLayoutGeometry(resolved: ResolvedNode, path: string = "", offsetX: number = 0, offsetY: number = 0): LayoutGeometry[] {
+  if (resolved.node.type !== "layout") return []
+
+  const absX = offsetX + resolved.x
+  const absY = offsetY + resolved.y
+  const rect = { x: absX, y: absY, width: resolved.w, height: resolved.h }
+  const childRects: LayoutGeometry["childRects"] = []
+  let nested: LayoutGeometry[] = []
+
+  if (resolved.children) {
+    resolved.children.forEach((child, i) => {
+      const childPath = path === "" ? `${i}` : `${path}.${i}`
+      const childAbsX = absX + child.x
+      const childAbsY = absY + child.y
+      childRects.push({
+        path: childPath,
+        rect: { x: childAbsX, y: childAbsY, width: child.w, height: child.h },
+      })
+      if (child.node.type === "layout") {
+        nested = nested.concat(buildLayoutGeometry(child, childPath, absX, absY))
       }
-    }
-    layouts.push({ path, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, direction, childRects })
+    })
   }
-  return layouts
+
+  return [{ path, rect, direction: resolved.node.direction, childRects }, ...nested]
 }

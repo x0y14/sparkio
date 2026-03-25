@@ -1,17 +1,30 @@
-export type Item = { type: "item"; id: string; width: string; height: string }
-export type Layout = { type: "layout"; direction: "vertical" | "horizontal"; children: LayoutNode[] }
-export type Spacer = { type: "spacer"; size: string }
+export type AutoSizing = { sizing: "auto" }
+export type RatioSizing = { sizing: "ratio"; ratioW: string; ratioH: string }
+export type RemSizing = { sizing: "rem"; remW: number; remH: number }
+export type NodeSizing = AutoSizing | RatioSizing | RemSizing
+export type SizingMode = NodeSizing["sizing"]
+
+export type Item = { type: "item"; id: string } & NodeSizing
+export type Layout = { type: "layout"; direction: "vertical" | "horizontal"; children: LayoutNode[] } & NodeSizing
+export type Spacer = { type: "spacer" } & NodeSizing
 export type LayoutNode = Item | Layout | Spacer
+
+export type LayoutSettings = {
+  gap: number
+  padding: number
+  alignItems?: "start" | "center" | "end" | "stretch"
+  justifyContent?: "start" | "center" | "end" | "space-between" | "space-around" | "space-evenly"
+}
+
+export type LayoutDocument = {
+  settings: LayoutSettings
+  node: LayoutNode
+}
 
 function isItem(obj: unknown): obj is Item {
   if (typeof obj !== "object" || obj === null) return false
   const o = obj as Record<string, unknown>
-  return (
-    o.type === "item" &&
-    typeof o.id === "string" &&
-    (o.width === undefined || typeof o.width === "string") &&
-    (o.height === undefined || typeof o.height === "string")
-  )
+  return o.type === "item" && typeof o.id === "string"
 }
 
 function isLayout(obj: unknown): obj is Layout {
@@ -26,39 +39,73 @@ function isLayout(obj: unknown): obj is Layout {
 }
 
 function isSpacer(obj: unknown): obj is Spacer {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    (obj as Record<string, unknown>).type === "spacer" &&
-    typeof (obj as Record<string, unknown>).size === "string"
-  )
+  if (typeof obj !== "object" || obj === null) return false
+  const o = obj as Record<string, unknown>
+  if (o.type !== "spacer") return false
+  return typeof o.size === "string" || o.sizing !== undefined
 }
 
 function isLayoutNode(obj: unknown): obj is LayoutNode {
   return isItem(obj) || isLayout(obj) || isSpacer(obj)
 }
 
-export function parseLayoutNode(json: string): LayoutNode | null {
+function migrateNode(node: LayoutNode): LayoutNode | null {
+  if (node.type === "spacer") {
+    const o = node as any
+    if (o.size && !o.sizing) {
+      const { size, ...rest } = o
+      if (size === "auto") return { ...rest, type: "spacer" as const, sizing: "auto" as const }
+      return { ...rest, type: "spacer" as const, sizing: "ratio" as const, ratioW: size, ratioH: "1/1" }
+    }
+  }
+
+  const o = node as any
+  const sizing = o.sizing ?? "auto"
+
+  if (sizing === "ratio") {
+    if (typeof o.ratioW !== "string" || typeof o.ratioH !== "string") return null
+  } else if (sizing === "rem") {
+    if (typeof o.remW !== "number" || typeof o.remH !== "number") return null
+  }
+
+  if (node.type === "layout") {
+    const children: LayoutNode[] = []
+    for (const child of node.children) {
+      const migrated = migrateNode(child)
+      if (!migrated) return null
+      children.push(migrated)
+    }
+    return { ...node, sizing, children }
+  }
+  return { ...node, sizing }
+}
+
+const VALID_ALIGN_ITEMS = ["start", "center", "end", "stretch"]
+const VALID_JUSTIFY_CONTENT = ["start", "center", "end", "space-between", "space-around", "space-evenly"]
+
+export function parseLayoutDocument(json: string): LayoutDocument | null {
   try {
-    const parsed: unknown = JSON.parse(json)
-    if (!isLayoutNode(parsed)) return null
-    return normalizeDefaults(parsed)
+    const parsed = JSON.parse(json)
+    if (!parsed || typeof parsed !== "object") return null
+    if (!parsed.settings || typeof parsed.settings !== "object") return null
+    if (!isLayoutNode(parsed.node)) return null
+    const migrated = migrateNode(parsed.node)
+    if (!migrated) return null
+    return {
+      settings: {
+        gap: typeof parsed.settings.gap === "number" ? parsed.settings.gap : 8,
+        padding: typeof parsed.settings.padding === "number" ? parsed.settings.padding : 8,
+        ...(VALID_ALIGN_ITEMS.includes(parsed.settings.alignItems) ? { alignItems: parsed.settings.alignItems } : {}),
+        ...(VALID_JUSTIFY_CONTENT.includes(parsed.settings.justifyContent) ? { justifyContent: parsed.settings.justifyContent } : {}),
+      },
+      node: migrated,
+    }
   } catch {
     return null
   }
 }
 
-function normalizeDefaults(node: LayoutNode): LayoutNode {
-  if (node.type === "item") {
-    return { ...node, width: node.width ?? "auto", height: node.height ?? "auto" }
-  }
-  if (node.type === "layout") {
-    return { ...node, children: node.children.map(normalizeDefaults) }
-  }
-  return node
-}
-
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -66,71 +113,55 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;")
 }
 
-function buildItemSizeStyle(width: string | undefined, height: string | undefined): string {
-  const parts: string[] = []
-  if (width && width !== "auto") parts.push(`width: ${width}`)
-  if (height && height !== "auto") parts.push(`height: ${height}`)
-  return parts.join("; ")
+import type { ResolvedNode } from "./compute-layout"
+
+function spacerLabel(node: Spacer): string {
+  if (node.sizing === "ratio") return `spacer ratio:${escapeHtml(node.ratioW)}`
+  if (node.sizing === "rem") return `spacer rem`
+  return `spacer auto`
 }
 
-function hasExplicitSize(width: string | undefined, height: string | undefined): boolean {
-  return (!!width && width !== "auto") || (!!height && height !== "auto")
-}
+export function renderResolvedNode(resolved: ResolvedNode, isRoot: boolean = true): string {
+  const { node, x, y, w, h } = resolved
+  const position = isRoot ? "relative" : "absolute"
 
-function sizeToBasis(size: string): string {
-  if (size === "1/2") return "50%"
-  if (size === "1/3") return "33.333%"
-  if (size === "2/3") return "66.667%"
-  if (size === "1/4") return "25%"
-  if (size === "3/4") return "75%"
-  return size
-}
-
-export function renderLayoutNode(node: LayoutNode): string {
   if (node.type === "item") {
     const id = escapeHtml(node.id)
-    const sizeStyle = buildItemSizeStyle(node.width, node.height)
-    const styleAttr = sizeStyle ? ` style="${sizeStyle}"` : ""
-    const flexClass = hasExplicitSize(node.width, node.height) ? "flex-none" : "flex flex-1"
-    return `<div data-node-type="item" data-node-id="${id}"${styleAttr} class="${flexClass} items-center justify-center p-4 border-2 border-blue-300 bg-blue-50 rounded text-sm font-mono">${id}</div>`
+    return `<div data-node-type="item" data-node-id="${id}" style="position: ${position}; left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px;" class="flex items-center justify-center border-2 border-blue-300 bg-blue-50 rounded text-sm font-mono">${id}</div>`
   }
   if (node.type === "spacer") {
-    const flexStyle = node.size === "auto" ? "flex: 1 1 0%" : `flex: 0 0 ${sizeToBasis(node.size)}`
-    return `<div data-node-type="spacer" data-spacer-size="${escapeHtml(node.size)}" style="${flexStyle}" class="flex items-center justify-center p-4 border-2 border-green-300 bg-green-50 rounded text-sm font-mono">spacer ${escapeHtml(node.size)}</div>`
+    const label = spacerLabel(node)
+    return `<div data-node-type="spacer" style="position: ${position}; left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px;" class="flex items-center justify-center border-2 border-green-300 bg-green-50 rounded text-sm font-mono">${label}</div>`
   }
-  const flexDir = node.direction === "horizontal" ? "flex-row" : "flex-col"
-  const childrenHtml = node.children.map((c) => renderLayoutNode(c)).join("")
-  return `<div data-node-type="layout" data-direction="${node.direction}" class="flex flex-1 ${flexDir} gap-2 p-2 border-2 border-gray-300 bg-gray-50 rounded">${childrenHtml}</div>`
+  const childrenHtml = (resolved.children ?? []).map(c => renderResolvedNode(c, false)).join("")
+  return `<div data-node-type="layout" data-direction="${node.direction}" style="position: ${position}; left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px;" class="border-2 border-gray-300 bg-gray-50 rounded">${childrenHtml}</div>`
 }
 
-export function renderLayoutNodeWithPath(node: LayoutNode, path: string = ""): string {
+export function renderResolvedNodeWithPath(resolved: ResolvedNode, path: string = "", isRoot: boolean = true): string {
+  const { node, x, y, w, h } = resolved
+  const position = isRoot ? "relative" : "absolute"
+
   if (node.type === "item") {
     const id = escapeHtml(node.id)
-    const sizeStyle = buildItemSizeStyle(node.width, node.height)
-    const styleAttr = sizeStyle ? ` style="${sizeStyle}"` : ""
-    const w = node.width ?? "auto"
-    const h = node.height ?? "auto"
-    const flexClass = hasExplicitSize(node.width, node.height) ? "flex-none" : "flex flex-1"
-    return `<div data-node-type="item" data-node-id="${id}" data-item-width="${escapeHtml(w)}" data-item-height="${escapeHtml(h)}" data-path="${path}"${styleAttr} class="${flexClass} items-center justify-center p-4 border-2 border-blue-300 bg-blue-50 rounded text-sm font-mono cursor-grab">${id}</div>`
+    return `<div data-node-type="item" data-node-id="${id}" data-path="${path}" style="position: ${position}; left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px;" class="flex items-center justify-center border-2 border-blue-300 bg-blue-50 rounded text-sm font-mono cursor-grab">${id}</div>`
   }
   if (node.type === "spacer") {
-    const flexStyle = node.size === "auto" ? "flex: 1 1 0%" : `flex: 0 0 ${sizeToBasis(node.size)}`
-    return `<div data-node-type="spacer" data-spacer-size="${escapeHtml(node.size)}" data-path="${path}" style="${flexStyle}" class="flex items-center justify-center p-4 border-2 border-green-300 bg-green-50 rounded text-sm font-mono cursor-grab">spacer ${escapeHtml(node.size)}</div>`
+    const label = spacerLabel(node)
+    return `<div data-node-type="spacer" data-path="${path}" style="position: ${position}; left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px;" class="flex items-center justify-center border-2 border-green-300 bg-green-50 rounded text-sm font-mono cursor-grab">${label}</div>`
   }
-  const flexDir = node.direction === "horizontal" ? "flex-row" : "flex-col"
-  const childrenHtml = node.children.map((c, i) => {
+  const childrenHtml = (resolved.children ?? []).map((c, i) => {
     const childPath = path === "" ? `${i}` : `${path}.${i}`
-    return renderLayoutNodeWithPath(c, childPath)
+    return renderResolvedNodeWithPath(c, childPath, false)
   }).join("")
-  return `<div data-node-type="layout" data-direction="${node.direction}" data-path="${path}" class="flex flex-1 ${flexDir} gap-2 p-2 border-2 border-gray-300 bg-gray-50 rounded">${childrenHtml}</div>`
+  return `<div data-node-type="layout" data-direction="${node.direction}" data-path="${path}" style="position: ${position}; left: ${x}px; top: ${y}px; width: ${w}px; height: ${h}px;" class="border-2 border-gray-300 bg-gray-50 rounded">${childrenHtml}</div>`
 }
 
 export function createNewNode(nodeType: "item" | "vertical" | "horizontal" | "spacer"): LayoutNode {
   if (nodeType === "item") {
-    return { type: "item", id: `item-${crypto.randomUUID().slice(0, 8)}`, width: "auto", height: "auto" }
+    return { type: "item", id: `item-${crypto.randomUUID().slice(0, 8)}`, sizing: "auto" }
   }
   if (nodeType === "spacer") {
-    return { type: "spacer", size: "1/2" }
+    return { type: "spacer", sizing: "auto" }
   }
-  return { type: "layout", direction: nodeType, children: [] }
+  return { type: "layout", direction: nodeType, children: [], sizing: "auto" }
 }

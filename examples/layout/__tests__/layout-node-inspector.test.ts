@@ -13,20 +13,31 @@ describe("layout-node-inspector", () => {
     expect(sq(el, "[data-inspector]")).toBeNull()
   })
 
-  it("item選択時: type, id表示", async () => {
+  it("item選択時: type, id, sizing表示", async () => {
     el = await createElement("layout-node-inspector", {
       "node-type": "item", "node-id": "hello",
     })
     expect(sq(el, "[data-field='type']")!.textContent).toContain("item")
     expect((sq(el, "[data-field='id'] input") as HTMLInputElement).value).toBe("hello")
+    expect(sq(el, "[data-field='sizing']")).not.toBeNull()
   })
 
-  it("layout選択時: type, direction表示", async () => {
+  it("layout選択時: type, direction, sizing表示", async () => {
     el = await createElement("layout-node-inspector", {
       "node-type": "layout", "node-direction": "vertical",
     })
     expect(sq(el, "[data-field='type']")!.textContent).toContain("layout")
     expect((sq(el, "[data-field='direction'] input") as HTMLInputElement).value).toBe("vertical")
+    expect(sq(el, "[data-field='sizing']")).not.toBeNull()
+  })
+
+  it("spacer選択時: type, sizing, ratioW表示", async () => {
+    el = await createElement("layout-node-inspector", {
+      "node-type": "spacer", "node-sizing": "ratio", "node-ratio-w": "1/2",
+    })
+    expect(sq(el, "[data-field='type']")!.textContent).toContain("spacer")
+    expect(sq(el, "[data-field='sizing']")).not.toBeNull()
+    expect(sq(el, "[data-field='ratioW']")).not.toBeNull()
   })
 
   it("id変更でid-changeイベント発火", async () => {
@@ -59,29 +70,6 @@ describe("layout-node-inspector", () => {
     expect(received).toBe("horizontal")
   })
 
-  it("spacer選択時: type, size表示", async () => {
-    el = await createElement("layout-node-inspector", {
-      "node-type": "spacer", "node-size": "1/2",
-    })
-    expect(sq(el, "[data-field='type']")!.textContent).toContain("spacer")
-    expect((sq(el, "[data-field='size'] input") as HTMLInputElement).value).toBe("1/2")
-  })
-
-  it("size変更でsize-changeイベント発火", async () => {
-    el = await createElement("layout-node-inspector", {
-      "node-type": "spacer", "node-size": "1/2",
-    })
-    let received: string | undefined
-    el.addEventListener("size-change", ((e: CustomEvent) => {
-      received = e.detail.size
-    }) as EventListener)
-    const input = sq(el, "[data-field='size'] input") as HTMLInputElement
-    input.value = "1/3"
-    input.dispatchEvent(new Event("change", { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 0))
-    expect(received).toBe("1/3")
-  })
-
   it("renders delete button when node selected", async () => {
     el = await createElement("layout-node-inspector", {
       "node-type": "item", "node-id": "a",
@@ -101,43 +89,5 @@ describe("layout-node-inspector", () => {
     btn.click()
     await new Promise((r) => setTimeout(r, 0))
     expect(received).toBe(true)
-  })
-
-  it("item選択時: width, height表示", async () => {
-    el = await createElement("layout-node-inspector", {
-      "node-type": "item", "node-id": "a", "node-width": "100px", "node-height": "50px",
-    })
-    expect((sq(el, "[data-field='width'] input") as HTMLInputElement).value).toBe("100px")
-    expect((sq(el, "[data-field='height'] input") as HTMLInputElement).value).toBe("50px")
-  })
-
-  it("width変更でwidth-changeイベント発火", async () => {
-    el = await createElement("layout-node-inspector", {
-      "node-type": "item", "node-id": "a", "node-width": "auto", "node-height": "auto",
-    })
-    let received: string | undefined
-    el.addEventListener("width-change", ((e: CustomEvent) => {
-      received = e.detail.width
-    }) as EventListener)
-    const input = sq(el, "[data-field='width'] input") as HTMLInputElement
-    input.value = "200px"
-    input.dispatchEvent(new Event("change", { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 0))
-    expect(received).toBe("200px")
-  })
-
-  it("height変更でheight-changeイベント発火", async () => {
-    el = await createElement("layout-node-inspector", {
-      "node-type": "item", "node-id": "a", "node-width": "auto", "node-height": "auto",
-    })
-    let received: string | undefined
-    el.addEventListener("height-change", ((e: CustomEvent) => {
-      received = e.detail.height
-    }) as EventListener)
-    const input = sq(el, "[data-field='height'] input") as HTMLInputElement
-    input.value = "100px"
-    input.dispatchEvent(new Event("change", { bubbles: true }))
-    await new Promise((r) => setTimeout(r, 0))
-    expect(received).toBe("100px")
   })
 })

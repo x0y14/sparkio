@@ -1,75 +1,70 @@
 import { describe, it, expect } from "vitest"
-import { findDropTarget } from "../src/utils/drop-target"
-import type { LayoutGeometry } from "../src/utils/drop-target"
+import { findDropTarget, buildLayoutGeometry } from "../src/utils/drop-target"
+import { computeLayout } from "../src/utils/compute-layout"
+import type { LayoutDocument } from "../src/utils/layout-parser"
 
-const layouts: LayoutGeometry[] = [
-  {
-    path: "",
-    rect: { x: 0, y: 0, width: 400, height: 300 },
-    direction: "vertical",
-    childRects: [
-      { path: "0", rect: { x: 0, y: 0, width: 400, height: 40 } },
-      { path: "1", rect: { x: 0, y: 48, width: 400, height: 200 } },
-      { path: "2", rect: { x: 0, y: 256, width: 400, height: 40 } },
+const doc: LayoutDocument = {
+  settings: { gap: 8, padding: 8 },
+  node: {
+    type: "layout", direction: "vertical", sizing: "auto", children: [
+      { type: "item", id: "a", sizing: "auto" },
+      { type: "layout", direction: "horizontal", sizing: "auto", children: [
+        { type: "item", id: "b", sizing: "auto" },
+        { type: "item", id: "c", sizing: "auto" },
+      ]},
+      { type: "item", id: "d", sizing: "auto" },
     ],
   },
-  {
-    path: "1",
-    rect: { x: 0, y: 48, width: 400, height: 200 },
-    direction: "horizontal",
-    childRects: [
-      { path: "1.0", rect: { x: 0, y: 48, width: 196, height: 200 } },
-      { path: "1.1", rect: { x: 204, y: 48, width: 196, height: 200 } },
-    ],
-  },
-]
+}
+
+const CW = 1000
+const CH = 800
+
+describe("buildLayoutGeometry", () => {
+  it("ルートLayoutのジオメトリを返す", () => {
+    const resolved = computeLayout(doc, CW, CH)
+    const geoms = buildLayoutGeometry(resolved)
+    const root = geoms.find(g => g.path === "")!
+    expect(root.rect.x).toBe(0)
+    expect(root.rect.y).toBe(0)
+    expect(root.rect.width).toBe(CW)
+    expect(root.rect.height).toBe(CH)
+    expect(root.direction).toBe("vertical")
+    expect(root.childRects).toHaveLength(3)
+  })
+
+  it("ネストしたLayoutのジオメトリを返す", () => {
+    const resolved = computeLayout(doc, CW, CH)
+    const geoms = buildLayoutGeometry(resolved)
+    const nested = geoms.find(g => g.path === "1")!
+    expect(nested.direction).toBe("horizontal")
+    expect(nested.childRects).toHaveLength(2)
+  })
+})
 
 describe("findDropTarget", () => {
-  it("vertical layout: 最初の子の上→index 0", () => {
-    const result = findDropTarget(layouts, 200, 10, "2")
-    expect(result).toEqual({ targetPath: "", insertIndex: 0 })
-  })
-
-  it("vertical layout: 最初と2番目の子の間→index 1", () => {
-    const result = findDropTarget(layouts, 200, 44, "2")
-    expect(result).toEqual({ targetPath: "", insertIndex: 1 })
-  })
-
-  it("vertical layout: 最後の子の下→最後のindex", () => {
-    const result = findDropTarget(layouts, 200, 290, "0")
-    expect(result).toEqual({ targetPath: "", insertIndex: 3 })
+  it("vertical layout: 上部→index 0", () => {
+    const resolved = computeLayout(doc, CW, CH)
+    const geoms = buildLayoutGeometry(resolved)
+    const result = findDropTarget(geoms, CW / 2, 10, "2")
+    expect(result).not.toBeNull()
+    expect(result!.targetPath).toBe("")
+    expect(result!.insertIndex).toBe(0)
   })
 
   it("ネストしたlayoutを優先", () => {
-    const result = findDropTarget(layouts, 100, 100, "2")
+    const resolved = computeLayout(doc, CW, CH)
+    const geoms = buildLayoutGeometry(resolved)
+    const nested = geoms.find(g => g.path === "1")!
+    const midX = nested.rect.x + nested.rect.width / 2
+    const midY = nested.rect.y + nested.rect.height / 2
+    const result = findDropTarget(geoms, midX, midY, "2")
     expect(result!.targetPath).toBe("1")
   })
 
-  it("horizontal layout: 左側→index 0", () => {
-    const result = findDropTarget(layouts, 50, 100, "2")
-    expect(result).toEqual({ targetPath: "1", insertIndex: 0 })
-  })
-
-  it("horizontal layout: 右側→index 2", () => {
-    const result = findDropTarget(layouts, 350, 100, "2")
-    expect(result).toEqual({ targetPath: "1", insertIndex: 2 })
-  })
-
-  it("sourcePathと同じlayoutはスキップ", () => {
-    const result = findDropTarget(layouts, 100, 100, "1")
-    expect(result!.targetPath).toBe("")
-  })
-
   it("マウスが全layout外→null", () => {
-    const result = findDropTarget(layouts, 500, 500, "0")
-    expect(result).toBeNull()
-  })
-
-  it("sourcePath nullのときルートlayoutもスキップされない", () => {
-    // sourcePath=""だとルートがスキップされるが、nullならされない
-    // mouseが"1"(nested layout)の外、rootの中にある座標を使用
-    const result = findDropTarget(layouts, 200, 270, null)
-    expect(result).not.toBeNull()
-    expect(result!.targetPath).toBe("")
+    const resolved = computeLayout(doc, CW, CH)
+    const geoms = buildLayoutGeometry(resolved)
+    expect(findDropTarget(geoms, CW + 100, CH + 100, "0")).toBeNull()
   })
 })

@@ -19,13 +19,14 @@
     "@unocss/preset-typography": "^66.0.0",
     "@unocss/reset": "^66.0.0",
     "astro": "^6.0.4",
-    "unocss": "^66.0.0"
+    "unocss": "^66.0.0",
+    "yoga-layout": "^3.2.1"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
     "@playwright/test": "^1.52.0",
     "@unocss/preset-wind4": "^66.6.6",
     "happy-dom": "^17.0.0",
+    "typescript": "^5.9.3",
     "vitest": "^3.0.0"
   }
 }

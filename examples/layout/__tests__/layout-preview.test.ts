@@ -2,6 +2,11 @@ import { describe, it, expect, afterEach } from "vitest"
 import { createElement, sq, sqa, cleanup } from "../src/utils/test-helpers"
 import "../src/components/layout-preview"
 
+const makeDoc = (node: object) => JSON.stringify({
+  settings: { gap: 8, padding: 8 },
+  node,
+})
+
 describe("layout-preview", () => {
   let el: HTMLElement
   afterEach(() => {
@@ -15,7 +20,7 @@ describe("layout-preview", () => {
 
   it("renders valid layout item", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = '{"type":"item","id":"a"}'
+    ;(el as any).content = makeDoc({ type: "item", id: "a" })
     await new Promise((r) => setTimeout(r, 0))
     const item = sq(el, "[data-node-type='item']")
     expect(item).not.toBeNull()
@@ -24,9 +29,8 @@ describe("layout-preview", () => {
 
   it("renders valid nested layout", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = JSON.stringify({
-      type: "layout",
-      direction: "horizontal",
+    ;(el as any).content = makeDoc({
+      type: "layout", direction: "horizontal",
       children: [
         { type: "item", id: "x" },
         { type: "item", id: "y" },
@@ -48,7 +52,7 @@ describe("layout-preview", () => {
     expect(errorEl!.textContent).toContain("{invalid json")
   })
 
-  it("shows error for valid JSON that is not a LayoutNode", async () => {
+  it("shows error for valid JSON that is not a LayoutDocument", async () => {
     el = await createElement("layout-preview")
     ;(el as any).content = '{"foo":"bar"}'
     await new Promise((r) => setTimeout(r, 0))
@@ -58,7 +62,7 @@ describe("layout-preview", () => {
 
   it("renders items with data-path attributes", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = JSON.stringify({
+    ;(el as any).content = makeDoc({
       type: "layout", direction: "vertical",
       children: [{ type: "item", id: "a" }, { type: "item", id: "b" }],
     })
@@ -69,7 +73,7 @@ describe("layout-preview", () => {
 
   it("renders layouts with data-path attributes", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = JSON.stringify({
+    ;(el as any).content = makeDoc({
       type: "layout", direction: "vertical",
       children: [{ type: "item", id: "a" }],
     })
@@ -79,7 +83,7 @@ describe("layout-preview", () => {
 
   it("emits node-select on item click", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = JSON.stringify({
+    ;(el as any).content = makeDoc({
       type: "layout", direction: "vertical",
       children: [{ type: "item", id: "a" }],
     })
@@ -97,22 +101,9 @@ describe("layout-preview", () => {
     expect(received.nodeId).toBe("a")
   })
 
-  it("emits node-select with width and height on item click", async () => {
-    el = await createElement("layout-preview", {
-      content: JSON.stringify({ type: "item", id: "a", width: "100px", height: "50px" }),
-    })
-    let received: any
-    el.addEventListener("node-select", ((e: CustomEvent) => { received = e.detail }) as EventListener)
-    const item = sq(el, "[data-node-id='a']") as HTMLElement
-    item.click()
-    await new Promise((r) => setTimeout(r, 0))
-    expect(received.itemWidth).toBe("100px")
-    expect(received.itemHeight).toBe("50px")
-  })
-
   it("emits node-select on layout click", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = JSON.stringify({
+    ;(el as any).content = makeDoc({
       type: "layout", direction: "horizontal",
       children: [{ type: "item", id: "a" }],
     })
@@ -131,7 +122,7 @@ describe("layout-preview", () => {
 
   it("emits node-select with null path on deselect", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = JSON.stringify({
+    ;(el as any).content = makeDoc({
       type: "layout", direction: "vertical",
       children: [{ type: "item", id: "a" }],
     })
@@ -151,10 +142,10 @@ describe("layout-preview", () => {
 
   it("updates when content changes", async () => {
     el = await createElement("layout-preview")
-    ;(el as any).content = '{"type":"item","id":"first"}'
+    ;(el as any).content = makeDoc({ type: "item", id: "first" })
     await new Promise((r) => setTimeout(r, 0))
     expect(sq(el, "[data-node-id='first']")).not.toBeNull()
-    ;(el as any).content = '{"type":"item","id":"second"}'
+    ;(el as any).content = makeDoc({ type: "item", id: "second" })
     await new Promise((r) => setTimeout(r, 0))
     expect(sq(el, "[data-node-id='second']")).not.toBeNull()
     expect(sq(el, "[data-node-id='first']")).toBeNull()

@@ -79,7 +79,6 @@ export function moveNode(tree: LayoutNode, sourcePath: NodePath, targetPath: Nod
     return null
   }
 
-  // sourceの削除でtargetPathがずれる可能性を調整
   let adjustedTargetPath = targetPath
   if (sourceParentPath !== targetPath) {
     const sp = parsePath(sourcePath)
@@ -131,24 +130,14 @@ export function updateLayoutDirection(tree: LayoutNode, path: NodePath, newDirec
   return cloned
 }
 
-export function updateSpacerSize(tree: LayoutNode, path: NodePath, newSize: string): LayoutNode | null {
-  const node = getNode(tree, path)
-  if (!node || node.type !== "spacer") return null
-  const cloned = cloneTree(tree)
-  let current: LayoutNode = cloned
-  const indices = parsePath(path)
-  for (const i of indices) {
-    if (current.type !== "layout") return null
-    current = current.children[i]
-  }
-  if (current.type !== "spacer") return null
-  current.size = newSize
-  return cloned
-}
+import type { NodeSizing } from "./layout-parser"
 
-export function updateItemWidth(tree: LayoutNode, path: NodePath, newWidth: string): LayoutNode | null {
+export function updateNodeSizing(
+  tree: LayoutNode, path: NodePath,
+  newSizing: NodeSizing,
+): LayoutNode | null {
   const node = getNode(tree, path)
-  if (!node || node.type !== "item") return null
+  if (!node) return null
   const cloned = cloneTree(tree)
   let current: LayoutNode = cloned
   const indices = parsePath(path)
@@ -156,22 +145,10 @@ export function updateItemWidth(tree: LayoutNode, path: NodePath, newWidth: stri
     if (current.type !== "layout") return null
     current = current.children[i]
   }
-  if (current.type !== "item") return null
-  current.width = newWidth
-  return cloned
-}
-
-export function updateItemHeight(tree: LayoutNode, path: NodePath, newHeight: string): LayoutNode | null {
-  const node = getNode(tree, path)
-  if (!node || node.type !== "item") return null
-  const cloned = cloneTree(tree)
-  let current: LayoutNode = cloned
-  const indices = parsePath(path)
-  for (const i of indices) {
-    if (current.type !== "layout") return null
-    current = current.children[i]
-  }
-  if (current.type !== "item") return null
-  current.height = newHeight
+  delete (current as any).ratioW
+  delete (current as any).ratioH
+  delete (current as any).remW
+  delete (current as any).remH
+  Object.assign(current, newSizing)
   return cloned
 }

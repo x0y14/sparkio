@@ -3,26 +3,25 @@ export interface LayoutDragState {
   sourceNodeId: string
   startMouseX: number
   startMouseY: number
-  startElementX: number
-  startElementY: number
-}
-
-export interface DragPosition {
-  x: number
-  y: number
+  startNodeX: number
+  startNodeY: number
 }
 
 export function beginLayoutDrag(
   sourcePath: string, sourceNodeId: string,
   mouseX: number, mouseY: number,
-  elementX: number, elementY: number,
+  nodeX: number, nodeY: number,
 ): LayoutDragState {
-  return { sourcePath, sourceNodeId, startMouseX: mouseX, startMouseY: mouseY, startElementX: elementX, startElementY: elementY }
+  return { sourcePath, sourceNodeId, startMouseX: mouseX, startMouseY: mouseY, startNodeX: nodeX, startNodeY: nodeY }
 }
 
-export function moveLayoutDrag(state: LayoutDragState, mouseX: number, mouseY: number): DragPosition {
+export function computeDragPosition(
+  state: LayoutDragState,
+  currentMouseX: number,
+  currentMouseY: number,
+): { x: number; y: number } {
   return {
-    x: state.startElementX + (mouseX - state.startMouseX),
-    y: state.startElementY + (mouseY - state.startMouseY),
+    x: state.startNodeX + (currentMouseX - state.startMouseX),
+    y: state.startNodeY + (currentMouseY - state.startMouseY),
   }
 }
